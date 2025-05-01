@@ -3,7 +3,7 @@ set -euo pipefail
 
 # -----------------------------------------------------------------------------
 # Cache setup script for pip, HuggingFace, and environment mix under Conda
-# Supports using local scratch (/tmp) for faster I/O when available
+# Uses persistent environment-level cache to avoid ephemeral /tmp
 # Usage: source scripts/cache_setup.sh
 # -----------------------------------------------------------------------------
 
@@ -13,50 +13,42 @@ if [[ -z "${CONDA_PREFIX:-}" ]]; then
   return 1
 fi
 
-# Determine fast I/O scratch if possible (/tmp assumed local)
-USER_TMP="/tmp/$(whoami)"
-if mkdir -p "$USER_TMP" && [[ -w "$USER_TMP" ]]; then
-  SCRATCH_ROOT="$USER_TMP/hf_cache"
-  echo "Using local scratch cache at $SCRATCH_ROOT"
-else
-  SCRATCH_ROOT="$CONDA_PREFIX/hf_cache"
-  echo "Local scratch unavailable, using env prefix cache at $SCRATCH_ROOT"
-fi
+# Persistent cache location under the Conda environment prefix
+env_cache_root="$CONDA_PREFIX/hf_cache"
 
-# Base cache root under chosen location
-export CACHE_ROOT="$SCRATCH_ROOT"
+# Create cache directories if missing
+mkdir -p "$env_cache_root/pip_cache" \
+         "$env_cache_root/pip_build" \
+         "$env_cache_root/transformers" \
+         "$env_cache_root/hub" \
+         "$env_cache_root/datasets" \
+         "$env_cache_root/metrics"
 
-# 1) Override XDG cache home (for HuggingFace hub & other libs)
-export XDG_CACHE_HOME="$CACHE_ROOT"
+echo "Using persistent cache at $env_cache_root"
+
+# 1) Override XDG cache home for HF and other libraries to use persistent cache\export XDG_CACHE_HOME="$env_cache_root"
 
 # 2) Pip cache and build directories
-export PIP_CACHE_DIR="$CACHE_ROOT/pip_cache"
-export TMPDIR="$CACHE_ROOT/pip_build"
-mkdir -p "$PIP_CACHE_DIR" "$TMPDIR"
-
+export PIP_CACHE_DIR="$env_cache_root/pip_cache"
+export TMPDIR="$env_cache_root/pip_build"
 echo "PIP_CACHE_DIR set to $PIP_CACHE_DIR"
 echo "TMPDIR set to $TMPDIR"
 
-# 3) Transformers cache
-export TRANSFORMERS_CACHE="$CACHE_ROOT/transformers"
-mkdir -p "$TRANSFORMERS_CACHE"
+# 3) Transformers cache\export TRANSFORMERS_CACHE="$env_cache_root/transformers"
 echo "TRANSFORMERS_CACHE set to $TRANSFORMERS_CACHE"
 
 # 4) HuggingFace hub cache
-export HF_HOME="$CACHE_ROOT"
-export HUGGINGFACE_HUB_CACHE="$CACHE_ROOT/hub"
-mkdir -p "$HUGGINGFACE_HUB_CACHE"
+export HF_HOME="$env_cache_root"
+export HUGGINGFACE_HUB_CACHE="$env_cache_root/hub"
 echo "HUGGINGFACE_HUB_CACHE set to $HUGGINGFACE_HUB_CACHE"
 
 # 5) Datasets and metrics caches
-export HF_DATASETS_CACHE="$CACHE_ROOT/datasets"
-export HF_METRICS_CACHE="$CACHE_ROOT/metrics"
-mkdir -p "$HF_DATASETS_CACHE" "$HF_METRICS_CACHE"
+export HF_DATASETS_CACHE="$env_cache_root/datasets"
+export HF_METRICS_CACHE="$env_cache_root/metrics"
 echo "HF_DATASETS_CACHE set to $HF_DATASETS_CACHE"
 echo "HF_METRICS_CACHE set to $HF_METRICS_CACHE"
 
 cat <<EOF
 
-Cache setup complete! Run your Python script now (in the same shell):
-  python chat.py --model_name ... --torch_dtype ... --trust_remote_code
+Persistent cache setup complete! 
 EOF
