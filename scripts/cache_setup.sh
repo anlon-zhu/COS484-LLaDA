@@ -2,40 +2,51 @@
 set -euo pipefail
 
 # -----------------------------------------------------------------------------
-# Cache setup script for pip and HuggingFace when using Conda environments
-# Usage: activate your conda env, then run:
-#    bash scripts/cache_setup.sh
+# Cache setup script for pip, HuggingFace, and environment mix under Conda
+# Usage: source scripts/cache_setup.sh
 # -----------------------------------------------------------------------------
 
 # Ensure this script is run inside an activated Conda environment
 if [[ -z "${CONDA_PREFIX:-}" ]]; then
   echo "Error: CONDA_PREFIX is not set. Please activate your Conda environment first."
-  exit 1
+  return 1
 fi
 
-# 1) Pip cache and build directories under the Conda env prefix
-export PIP_CACHE_DIR="$CONDA_PREFIX/pip_cache"
-export TMPDIR="$CONDA_PREFIX/pip_build"
+# Base cache root under your env prefix
+export CACHE_ROOT="$CONDA_PREFIX/hf_cache"
+
+# 1) XDG cache override (for HuggingFace hub and others)
+export XDG_CACHE_HOME="$CACHE_ROOT"
+
+# 2) Pip cache and build directories
+export PIP_CACHE_DIR="$CACHE_ROOT/pip_cache"
+export TMPDIR="$CACHE_ROOT/pip_build"
 mkdir -p "$PIP_CACHE_DIR" "$TMPDIR"
 
-echo "Set PIP_CACHE_DIR=$PIP_CACHE_DIR"
-echo "Set TMPDIR=$TMPDIR"
+echo "PIP_CACHE_DIR set to $PIP_CACHE_DIR"
+echo "TMPDIR set to $TMPDIR"
 
-# 2) HuggingFace cache directories under the Conda env prefix
-export HF_HOME="$CONDA_PREFIX/hf_cache"
-export TRANSFORMERS_CACHE="$HF_HOME/transformers"
-export HF_DATASETS_CACHE="$HF_HOME/datasets"
-export HF_METRICS_CACHE="$HF_HOME/metrics"
-mkdir -p "$TRANSFORMERS_CACHE" "$HF_DATASETS_CACHE" "$HF_METRICS_CACHE"
+# 3) Transformers cache
+export TRANSFORMERS_CACHE="$CACHE_ROOT/transformers"
+mkdir -p "$TRANSFORMERS_CACHE"
+echo "TRANSFORMERS_CACHE set to $TRANSFORMERS_CACHE"
 
-echo "Set HF_HOME=$HF_HOME"
-echo "Set TRANSFORMERS_CACHE=$TRANSFORMERS_CACHE"
-echo "Set HF_DATASETS_CACHE=$HF_DATASETS_CACHE"
-echo "Set HF_METRICS_CACHE=$HF_METRICS_CACHE"
+# 4) HuggingFace hub cache
+# (HF_HOME may be respected, but XDG_CACHE_HOME covers default ~/.cache)
+export HF_HOME="$CACHE_ROOT"
+export HUGGINGFACE_HUB_CACHE="$CACHE_ROOT/hub"
+mkdir -p "$HUGGINGFACE_HUB_CACHE"
+echo "HUGGINGFACE_HUB_CACHE set to $HUGGINGFACE_HUB_CACHE"
 
-# 3) Confirmation
+# 5) Datasets and metrics caches
+export HF_DATASETS_CACHE="$CACHE_ROOT/datasets"
+export HF_METRICS_CACHE="$CACHE_ROOT/metrics"
+mkdir -p "$HF_DATASETS_CACHE" "$HF_METRICS_CACHE"
+echo "HF_DATASETS_CACHE set to $HF_DATASETS_CACHE"
+echo "HF_METRICS_CACHE set to $HF_METRICS_CACHE"
+
 cat <<EOF
 
-Cache setup complete!  You can now run your Python scripts without hitting
-"No space left on device" errors.
+Cache setup complete!  Run your Python script now (in the same shell):
+  python chat.py --model_name ... --torch_dtype ... --trust_remote_code
 EOF
