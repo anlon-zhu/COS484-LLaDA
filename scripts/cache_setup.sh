@@ -3,6 +3,7 @@ set -euo pipefail
 
 # -----------------------------------------------------------------------------
 # Cache setup script for pip, HuggingFace, and environment mix under Conda
+# Supports using local scratch (/tmp) for faster I/O when available
 # Usage: source scripts/cache_setup.sh
 # -----------------------------------------------------------------------------
 
@@ -12,10 +13,20 @@ if [[ -z "${CONDA_PREFIX:-}" ]]; then
   return 1
 fi
 
-# Base cache root under your env prefix
-export CACHE_ROOT="$CONDA_PREFIX/hf_cache"
+# Determine fast I/O scratch if possible (/tmp assumed local)
+USER_TMP="/tmp/$(whoami)"
+if mkdir -p "$USER_TMP" && [[ -w "$USER_TMP" ]]; then
+  SCRATCH_ROOT="$USER_TMP/hf_cache"
+  echo "Using local scratch cache at $SCRATCH_ROOT"
+else
+  SCRATCH_ROOT="$CONDA_PREFIX/hf_cache"
+  echo "Local scratch unavailable, using env prefix cache at $SCRATCH_ROOT"
+fi
 
-# 1) XDG cache override (for HuggingFace hub and others)
+# Base cache root under chosen location
+export CACHE_ROOT="$SCRATCH_ROOT"
+
+# 1) Override XDG cache home (for HuggingFace hub & other libs)
 export XDG_CACHE_HOME="$CACHE_ROOT"
 
 # 2) Pip cache and build directories
@@ -32,7 +43,6 @@ mkdir -p "$TRANSFORMERS_CACHE"
 echo "TRANSFORMERS_CACHE set to $TRANSFORMERS_CACHE"
 
 # 4) HuggingFace hub cache
-# (HF_HOME may be respected, but XDG_CACHE_HOME covers default ~/.cache)
 export HF_HOME="$CACHE_ROOT"
 export HUGGINGFACE_HUB_CACHE="$CACHE_ROOT/hub"
 mkdir -p "$HUGGINGFACE_HUB_CACHE"
@@ -47,6 +57,6 @@ echo "HF_METRICS_CACHE set to $HF_METRICS_CACHE"
 
 cat <<EOF
 
-Cache setup complete!  Run your Python script now (in the same shell):
+Cache setup complete! Run your Python script now (in the same shell):
   python chat.py --model_name ... --torch_dtype ... --trust_remote_code
 EOF
