@@ -1,4 +1,4 @@
-module load anaconda3/2024.6
+module load anaconda3/2024
 conda create -p /n/fs/vl/anlon/envs/llada python=3.10 pip -y  
 conda activate /n/fs/vl/anlon/envs/llada
 
