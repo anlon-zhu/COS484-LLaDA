@@ -10,9 +10,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Using device: {device}")
 
 # Load model and tokenizer
-tokenizer = AutoTokenizer.from_pretrained('GSAI-ML/LLaDA-8B-Instruct', trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained('GSAI-ML/LLaDA-8B-Instruct', trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
 model = AutoModel.from_pretrained('GSAI-ML/LLaDA-8B-Instruct', trust_remote_code=True, 
-                                  torch_dtype=torch.bfloat16).to(device)
+                                  torch_dtype="auto", low_cpu_mem_usage=True).to(device)
 
 # Constants
 MASK_TOKEN = "[MASK]"
