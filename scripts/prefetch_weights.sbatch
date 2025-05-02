@@ -16,19 +16,16 @@ export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada
 
-# set cache directory for HF weights
-CACHE_DIR=/n/fs/vl/anlon/model_cache
-echo "Creating cache dir at $CACHE_DIR"
-mkdir -p "$CACHE_DIR"
+source "$(dirname "$0")/cache_setup.sh"
 
 # prefetch weights for Base and Instruct
-python - <<'PYCODE'
+python - <<PYCODE
 from huggingface_hub import snapshot_download
 snapshot_download(repo_id="GSAI-ML/LLaDA-8B-Base", cache_dir="$CACHE_DIR")
 snapshot_download(repo_id="GSAI-ML/LLaDA-8B-Instruct", cache_dir="$CACHE_DIR")
 PYCODE
 
-echo "🎉  Prefetch complete!  
+echo "  Prefetch complete!  
 Interactive sessions can now load instantly from the persistent cache under $CACHE_DIR.  
 Example:
   conda activate llada
