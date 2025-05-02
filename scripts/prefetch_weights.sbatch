@@ -1,46 +1,34 @@
 #!/bin/bash
+#SBATCH --job-name=prefetch_weights
+#SBATCH --output=prefetch_weights.%j.out
+#SBATCH --error=prefetch_weights.%j.err
+#SBATCH --time=00:10:00
+#SBATCH --mem=32G
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
-#SBATCH --time=01:00:00
 #SBATCH --mail-user=az4244@princeton.edu
 #SBATCH --mail-type=ALL
-#SBATCH --output=prefetch_%j.log
 
 set -euo pipefail
 
-# 1) Activate Conda & persistent-cache env
-export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
-source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
-conda activate llada
-source scripts/cache_setup.sh   # now CACHE_ROOT="$CONDA_PREFIX/hf_cache"
+# activate conda environment
+source /n/fs/vl/anlon/envs/llada/bin/activate
 
-# 2) Find the persistent HF‐hub model dir
-HF_HUB="$CONDA_PREFIX/hf_cache/hub"
-MODEL_NAME="GSAI-ML/LLaDA-8B-Instruct"
-PERSISTENT_DIR=$(find "$HF_HUB" -type d -path "*models--${MODEL_NAME//\//--}*" | head -n1)
+# set cache directory for HF weights
+CACHE_DIR=/n/fs/vl/anlon/model_cache
+echo "Creating cache dir at $CACHE_DIR"
+mkdir -p "$CACHE_DIR"
 
-if [[ ! -d "$PERSISTENT_DIR" ]]; then
-  echo "❌ Cannot find persisted shards under $HF_HUB"
-  exit 1
-fi
+# prefetch weights for Base and Instruct
+python - <<'PYCODE'
+from huggingface_hub import snapshot_download
+snapshot_download(repo_id="GSAI-ML/LLaDA-8B-Base", cache_dir="$CACHE_DIR")
+snapshot_download(repo_id="GSAI-ML/LLaDA-8B-Instruct", cache_dir="$CACHE_DIR")
+PYCODE
 
-echo "📂  Persistent shards found at: $PERSISTENT_DIR"
-
-# 3) Rsync directly to fast local scratch
-LOCAL_DIR="/tmp/$(whoami)/models--${MODEL_NAME//\//--}"
-echo "🚀  Staging shards → $LOCAL_DIR"
-rm -rf "$LOCAL_DIR"
-mkdir -p "$LOCAL_DIR"
-# --whole-file avoids delta checks; -z enables compression if your NFS benefits
-rsync -az --info=progress2 "$PERSISTENT_DIR/" "$LOCAL_DIR/"
-
-# 4) (Optional) quick sanity check that all 6 shards are there
-echo "📝  Local shard count: $(ls -1 $LOCAL_DIR/*.safetensors | wc -l) / expected 6"
-
-# 5) Sync back to persistent cache (no-op if nothing changed)
-echo "🔁  Syncing local → persistent (fast NFS copy)"
-rsync -az --info=progress2 "$LOCAL_DIR/" "$PERSISTENT_DIR/"
-
-echo "✅  Prefetch complete."
-echo "In your interactive shell, just point your model at:"
-echo "  --model_name $LOCAL_DIR"
+echo "🎉  Prefetch complete!  
+Interactive sessions can now load instantly from the persistent cache under $CACHE_DIR.  
+Example:
+  conda activate llada
+  source scripts/cache_setup.sh
+  python chat.py --model_name GSAI-ML/LLaDA-8B-Instruct --torch_dtype bfloat16 --trust_remote_code"
