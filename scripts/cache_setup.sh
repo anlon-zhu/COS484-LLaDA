@@ -3,55 +3,31 @@ set -euo pipefail
 
 # -----------------------------------------------------------------------------
 # Cache setup script for pip, HuggingFace, and environment mix under Conda
-# Uses a persistent cache under your Conda env prefix only
 # Usage: source scripts/cache_setup.sh
 # -----------------------------------------------------------------------------
 
-# 0) Make sure we’re in a Conda env
 if [[ -z "${CONDA_PREFIX:-}" ]]; then
   echo "Error: CONDA_PREFIX is not set. Please activate your Conda environment first."
   return 1
 fi
 
-# 1) Define a persistent cache root under your env prefix
-export CACHE_ROOT="$CONDA_PREFIX/hf_cache"
-mkdir -p "$CACHE_ROOT"
-echo "Using persistent cache at $CACHE_ROOT"
+# Determine base cache directory (override by setting CACHE_DIR env var)
+export CACHE_DIR="/n/fs/vl/anlon/model_cache"
+echo "Using cache directory: $CACHE_DIR"
 
-# 2) Override XDG cache home (for HF hub & other libs)
-export XDG_CACHE_HOME="$CACHE_ROOT"
+# Set cache environment variables
+export XDG_CACHE_HOME="${CACHE_DIR}"
+export PIP_CACHE_DIR="${CACHE_DIR}/pip_cache"
+export TMPDIR="${CACHE_DIR}/pip_build"
+export TRANSFORMERS_CACHE="${CACHE_DIR}/transformers"
+export HF_HOME="${CACHE_DIR}"
+export HUGGINGFACE_HUB_CACHE="${CACHE_DIR}/hub"
+export HF_DATASETS_CACHE="${CACHE_DIR}/datasets"
+export HF_METRICS_CACHE="${CACHE_DIR}/metrics"
+export HF_MODULES_CACHE="${CACHE_DIR}/modules"
 
-# 3) Pip cache & build dirs
-export PIP_CACHE_DIR="$CACHE_ROOT/pip_cache"
-export TMPDIR="$CACHE_ROOT/pip_build"
-mkdir -p "$PIP_CACHE_DIR" "$TMPDIR"
-echo "PIP_CACHE_DIR set to $PIP_CACHE_DIR"
-echo "TMPDIR set to $TMPDIR"
-
-# 4) Transformers cache
-export TRANSFORMERS_CACHE="$CACHE_ROOT/transformers"
-mkdir -p "$TRANSFORMERS_CACHE"
-echo "TRANSFORMERS_CACHE set to $TRANSFORMERS_CACHE"
-
-# 5) HuggingFace hub cache
-export HF_HOME="$CACHE_ROOT"
-export HUGGINGFACE_HUB_CACHE="$CACHE_ROOT/hub"
-mkdir -p "$HUGGINGFACE_HUB_CACHE"
-echo "HUGGINGFACE_HUB_CACHE set to $HUGGINGFACE_HUB_CACHE"
-
-# 6) Datasets & metrics caches
-export HF_DATASETS_CACHE="$CACHE_ROOT/datasets"
-export HF_METRICS_CACHE="$CACHE_ROOT/metrics"
-mkdir -p "$HF_DATASETS_CACHE" "$HF_METRICS_CACHE"
-echo "HF_DATASETS_CACHE set to $HF_DATASETS_CACHE"
-echo "HF_METRICS_CACHE set to $HF_METRICS_CACHE"
-
-# Setup Hugging Face cache directories
-export CACHE_DIR=/n/fs/vl/anlon/model_cache
-export HF_HOME=${CACHE_DIR}
-export TRANSFORMERS_CACHE=${CACHE_DIR}
-export HF_DATASETS_CACHE=${CACHE_DIR}/datasets
-export HF_MODULES_CACHE=${CACHE_DIR}/modules
+# Create cache directories
+mkdir -p "${PIP_CACHE_DIR}" "${TMPDIR}" "${TRANSFORMERS_CACHE}" "${HUGGINGFACE_HUB_CACHE}" "${HF_DATASETS_CACHE}" "${HF_METRICS_CACHE}" "${HF_MODULES_CACHE}"
 
 cat <<EOF
 
