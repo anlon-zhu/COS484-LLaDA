@@ -8,53 +8,50 @@
 
 set -euo pipefail
 
-# 1) Activate your environment and persistent cache
+# 1) Activate Conda & persistent cache setup
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada
-source scripts/cache_setup.sh    # CACHE_ROOT="$CONDA_PREFIX/hf_cache"
+source scripts/cache_setup.sh    # sets CACHE_ROOT="$CONDA_PREFIX/hf_cache"
 
-# 2) Prepare node-local cache dir
+# 2) Prepare a fresh local‐scratch cache
 LOCAL_CACHE="/tmp/$(whoami)/hf_cache"
 echo "🗂  Clearing & creating local cache at $LOCAL_CACHE"
 rm -rf "$LOCAL_CACHE"
 mkdir -p "$LOCAL_CACHE"
 
-export HF_HOME="$LOCAL_CACHE"
-export HUGGINGFACE_HUB_CACHE="$LOCAL_CACHE/hub"
-export XDG_CACHE_HOME="$LOCAL_CACHE"
-
-
-# 2.5) Wipe out any old model shards in the persistent cache
-PERSISTENT_DIR="$CACHE_ROOT/hub/models--GSAI-ML--LLaDA-8B-Instruct"
-if [[ -d "$PERSISTENT_DIR" ]]; then
-  echo "🧹 Removing old persistent cache at $PERSISTENT_DIR"
-  rm -rf "$PERSISTENT_DIR"
-fi
-
-# 4) Download & mmap‐load the model shards into local cache
-echo "⏱  Downloading + mmap-loading fresh shards into local cache…"
+# 3) Download & mmap‐load the model shards
+echo "⏱  Downloading + loading LLaDA-8B into GPU via local cache…"
 python - <<'PYCODE'
-import time
+import time, torch
 from transformers import AutoModel
 
 MODEL_ID = "GSAI-ML/LLaDA-8B-Instruct"
 cache_dir = "$LOCAL_CACHE"
 
 start = time.time()
-AutoModel.from_pretrained(
+model = AutoModel.from_pretrained(
     MODEL_ID,
     trust_remote_code=True,
-    cache_dir=cache_dir,
-    low_cpu_mem_usage=True
+    cache_dir=cache_dir,            # download here
+    torch_dtype=torch.bfloat16,
+    low_cpu_mem_usage=True          # mmap+stream to GPU
 )
-print(f"✅ Fresh shards fetched in {time.time() - start:.2f}s")
+device = torch.device("cuda")
+model.to(device)
+torch.cuda.synchronize()
+print(f"✅ Loaded in {time.time() - start:.2f}s via {cache_dir}")
 PYCODE
 
-# 5) Sync local shards → persistent cache
-echo "🔁  Syncing fresh shards back → $CACHE_ROOT/hub"
-rsync -a --info=progress2 "$LOCAL_CACHE/hub/" "$CACHE_ROOT/hub/"
+# 4) Sync local shards → persistent hub cache
+PERSISTENT_HUB="$CACHE_ROOT/hub"
+echo "🔁  Syncing local cache → $PERSISTENT_HUB"
+mkdir -p "$PERSISTENT_HUB"
+rsync -a --info=progress2 "$LOCAL_CACHE/hub/" "$PERSISTENT_HUB/"
 
-echo "🎉  Prefetch complete!"
-echo "Interactive sessions can now load directly from the persistent cache under:"
-echo "  $CACHE_ROOT/hub/models--GSAI-ML--LLaDA-8B-Instruct"
+echo "🎉  Prefetch complete!  
+Interactive sessions can now load instantly from the persistent cache under $PERSISTENT_HUB.  
+Example:
+  conda activate llada
+  source scripts/cache_setup.sh
+  python chat.py --model_name GSAI-ML/LLaDA-8B-Instruct --torch_dtype bfloat16 --trust_remote_code"
