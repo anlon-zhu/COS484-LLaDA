@@ -20,8 +20,13 @@ echo "🗂  Clearing & creating local cache at $LOCAL_CACHE"
 rm -rf "$LOCAL_CACHE"
 mkdir -p "$LOCAL_CACHE"
 
+export HF_HOME="$LOCAL_CACHE"
+export HUGGINGFACE_HUB_CACHE="$LOCAL_CACHE/hub"
+export XDG_CACHE_HOME="$LOCAL_CACHE"
+
+
 # 3) Prefetch + mmap‐load all shards into local cache
-echo "⏱  Downloading + mmap-loading shards into local cache (no GPU transfer)…"
+echo "⏱  Downloading + mmap‐loading shards into local cache (no GPU transfer)…"
 python - <<'PYCODE'
 import time
 from transformers import AutoModel
@@ -37,7 +42,7 @@ AutoModel.from_pretrained(
     cache_dir=cache_dir,
     low_cpu_mem_usage=True
 )
-print(f"✅ All shards fetched and mmap-loaded in {time.time() - start:.2f}s")
+print(f"✅ All shards fetched and mmaploaded in {time.time() - start:.2f}s")
 PYCODE
 
 # 4) Sync local cache back into persistent hub cache
