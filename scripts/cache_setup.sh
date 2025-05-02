@@ -19,7 +19,7 @@ echo "Using cache directory: $CACHE_DIR"
 export XDG_CACHE_HOME="${CACHE_DIR}"
 export PIP_CACHE_DIR="${CACHE_DIR}/pip_cache"
 export TMPDIR="${CACHE_DIR}/pip_build"
-export TRANSFORMERS_CACHE="${CACHE_DIR}/transformers"
+export TRANSFORMERS_CACHE="${CACHE_DIR}"
 export HF_HOME="${CACHE_DIR}"
 export HUGGINGFACE_HUB_CACHE="${CACHE_DIR}/hub"
 export HF_DATASETS_CACHE="${CACHE_DIR}/datasets"
@@ -31,6 +31,5 @@ mkdir -p "${PIP_CACHE_DIR}" "${TMPDIR}" "${TRANSFORMERS_CACHE}" "${HUGGINGFACE_H
 
 cat <<EOF
 
-Cache setup complete!  Run your Python script now in this same shell:
-  python chat.py --model_name ... --torch_dtype ... --trust_remote_code
+Cache setup complete!
 EOF
