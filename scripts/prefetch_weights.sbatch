@@ -12,7 +12,9 @@
 set -euo pipefail
 
 # activate conda environment
-source /n/fs/vl/anlon/envs/llada/bin/activate
+export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
+source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
+conda activate llada
 
 # set cache directory for HF weights
 CACHE_DIR=/n/fs/vl/anlon/model_cache
