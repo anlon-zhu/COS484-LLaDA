@@ -46,6 +46,13 @@ mkdir -p "$HF_DATASETS_CACHE" "$HF_METRICS_CACHE"
 echo "HF_DATASETS_CACHE set to $HF_DATASETS_CACHE"
 echo "HF_METRICS_CACHE set to $HF_METRICS_CACHE"
 
+# Setup Hugging Face cache directories
+export CACHE_DIR=/n/fs/vl/anlon/model_cache
+export HF_HOME=${CACHE_DIR}
+export TRANSFORMERS_CACHE=${CACHE_DIR}
+export HF_DATASETS_CACHE=${CACHE_DIR}/datasets
+export HF_MODULES_CACHE=${CACHE_DIR}/modules
+
 cat <<EOF
 
 Cache setup complete!  Run your Python script now in this same shell:
