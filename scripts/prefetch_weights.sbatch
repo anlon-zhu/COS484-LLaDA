@@ -25,8 +25,15 @@ export HUGGINGFACE_HUB_CACHE="$LOCAL_CACHE/hub"
 export XDG_CACHE_HOME="$LOCAL_CACHE"
 
 
-# 3) Prefetch + mmap‐load all shards into local cache
-echo "⏱  Downloading + mmap‐loading shards into local cache (no GPU transfer)…"
+# 2.5) Wipe out any old model shards in the persistent cache
+PERSISTENT_DIR="$CACHE_ROOT/hub/models--GSAI-ML--LLaDA-8B-Instruct"
+if [[ -d "$PERSISTENT_DIR" ]]; then
+  echo "🧹 Removing old persistent cache at $PERSISTENT_DIR"
+  rm -rf "$PERSISTENT_DIR"
+fi
+
+# 4) Download & mmap‐load the model shards into local cache
+echo "⏱  Downloading + mmap-loading fresh shards into local cache…"
 python - <<'PYCODE'
 import time
 from transformers import AutoModel
@@ -35,22 +42,19 @@ MODEL_ID = "GSAI-ML/LLaDA-8B-Instruct"
 cache_dir = "$LOCAL_CACHE"
 
 start = time.time()
-# low_cpu_mem_usage=True will memory-map shards rather than load full into RAM
 AutoModel.from_pretrained(
     MODEL_ID,
     trust_remote_code=True,
     cache_dir=cache_dir,
     low_cpu_mem_usage=True
 )
-print(f"✅ All shards fetched and mmaploaded in {time.time() - start:.2f}s")
+print(f"✅ Fresh shards fetched in {time.time() - start:.2f}s")
 PYCODE
 
-# 4) Sync local cache back into persistent hub cache
-PERSISTENT_HUB="$CACHE_ROOT/hub"
-echo "🔁  Syncing local cache → $PERSISTENT_HUB"
-mkdir -p "$PERSISTENT_HUB"
-rsync -a --info=progress2 "$LOCAL_CACHE/hub/" "$PERSISTENT_HUB/"
+# 5) Sync local shards → persistent cache
+echo "🔁  Syncing fresh shards back → $CACHE_ROOT/hub"
+rsync -a --info=progress2 "$LOCAL_CACHE/hub/" "$CACHE_ROOT/hub/"
 
 echo "🎉  Prefetch complete!"
 echo "Interactive sessions can now load directly from the persistent cache under:"
-echo "  $PERSISTENT_HUB/models--GSAI-ML--LLaDA-8B-Instruct"
+echo "  $CACHE_ROOT/hub/models--GSAI-ML--LLaDA-8B-Instruct"
