@@ -69,7 +69,7 @@ class LLaDAEvalHarness(LM):
         if self.accelerator is not None:
             model_kwargs.update({'device_map': {'': f'{self.accelerator.device}'}})
 
-        self.model = AutoModel.from_pretrained(model_path, trust_remote_code=True, torch_dtype=torch.bfloat16, **model_kwargs)
+        self.model = AutoModel.from_pretrained(model_path, trust_remote_code=True, load_in_8bit=True, torch_dtype=torch.bfloat16, **model_kwargs)
         self.model.eval()
 
         self.device = torch.device(device)
@@ -82,7 +82,7 @@ class LLaDAEvalHarness(LM):
             self.model = self.model.to(device)
 
         self.mask_id = mask_id
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, load_in_8bit=True)
 
         self.mc_num = mc_num
         self.batch_size = int(batch_size)
