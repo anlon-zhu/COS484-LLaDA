@@ -36,7 +36,7 @@ pip install --no-cache-dir \
   torch accelerate \
   lm_eval==0.4.5 \
   gradio \
-  huggingface_hub
+  huggingface_hub==0.28.1
 
 if [[ ! -d "bigcode-evaluation-harness" ]]; then
   git clone https://github.com/bigcode-project/bigcode-evaluation-harness.git

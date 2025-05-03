@@ -6,6 +6,8 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
+#SBATCH --mail-user=az4244@princeton.edu
+#SBATCH --mail-type=ALL
 
 # Load environment if needed
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
