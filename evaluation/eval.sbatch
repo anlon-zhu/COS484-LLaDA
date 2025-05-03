@@ -23,7 +23,7 @@ cd evaluation
 # Few-shot and zero-shot evaluations
 echo "GPQA few-shot evaluation"
 accelerate launch --mixed_precision fp16 eval_llada.py --tasks gpqa_main_n_shot --num_fewshot 5 --model llada_dist \
-  --batch_size 2 --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.5,is_check_greedy=False,mc_num=64,load_in_8bit=True
+  --batch_size 2 --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.5,is_check_greedy=False,mc_num=64
 
 # === BigCode Eval Harness ===
 echo "BigCode eval"
