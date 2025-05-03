@@ -36,7 +36,11 @@ pip install --no-cache-dir \
   torch accelerate \
   lm_eval==0.4.5 \
   gradio \
-  huggingface_hub \
-  bigcode-evaluation-harness
+  huggingface_hub
 
-echo "✅ llada is ready. You should now be able to do: python chat.py …"
+if [[ ! -d "bigcode-evaluation-harness" ]]; then
+  git clone https://github.com/bigcode-project/bigcode-evaluation-harness.git
+fi
+pip install -e bigcode-evaluation-harness
+
+echo "✅ llada is ready"
