@@ -11,6 +11,8 @@
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada
+# Pin transformers and PEFT to compatible versions to avoid missing EncoderDecoderCache
+pip install --quiet transformers==4.34.0 peft==0.6.0
 
 cd /n/fs/vl/anlon/COS484-LLaDA/
 source scripts/cache_setup.sh
