@@ -9,41 +9,73 @@
 #SBATCH --mail-user=az4244@princeton.edu
 #SBATCH --mail-type=ALL
 
-# Load environment if needed
+# Load environment
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada
 
 cd /n/fs/vl/anlon/COS484-LLaDA/
 source scripts/cache_setup.sh
+
+# let PyTorch fragment less
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 cd evaluation
 
-# Few-shot and zero-shot evaluations
 echo "GPQA few-shot evaluation"
-accelerate launch --num_processes 1 --gpu_ids "0" --mixed_precision fp16 eval_llada.py --tasks gpqa_main_n_shot --num_fewshot 5 --model llada_dist \
-  --batch_size 4 --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.5,is_check_greedy=False,mc_num=64
-
-# === BigCode Eval Harness ===
-echo "BigCode eval"
-accelerate launch bigcode-evaluation-harness/main.py \
+accelerate launch \
+  --mixed_precision fp16 \
+  --deepspeed ds_config.json \
   --num_processes 1 \
   --gpu_ids "0" \
-  --model llada_dist --tasks humaneval --max_length_generation 512 \
-  --temperature 0.2 --n_samples 200 --batch_size 4 \
-  --allow_code_execution
+  eval_llada.py \
+    --tasks gpqa_main_n_shot \
+    --num_fewshot 5 \
+    --model llada_dist \
+    --batch_size 4 \
+    --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.5,is_check_greedy=False,mc_num=64
 
-accelerate launch bigcode-evaluation-harness/main.py \
+echo "BigCode eval: humaneval"
+accelerate launch \
+  --mixed_precision fp16 \
+  --deepspeed ds_config.json \
   --num_processes 1 \
   --gpu_ids "0" \
-  --model llada_dist --tasks mbpp --max_length_generation 512 \
-  --temperature 0.1 --n_samples 15 --batch_size 4 \
-  --allow_code_execution
+  bigcode-evaluation-harness/main.py \
+    --model llada_dist \
+    --tasks humaneval \
+    --max_length_generation 512 \
+    --temperature 0.2 \
+    --n_samples 200 \
+    --batch_size 4 \
+    --allow_code_execution
 
-accelerate launch bigcode-evaluation-harness/main.py \
+echo "BigCode eval: mbpp"
+accelerate launch \
+  --mixed_precision fp16 \
+  --deepspeed ds_config.json \
   --num_processes 1 \
   --gpu_ids "0" \
-  --model llada_dist --tasks multiple-py --max_length_generation 512 \
-  --temperature 0.2 --n_samples 200 --batch_size 4 \
-  --allow_code_execution
+  bigcode-evaluation-harness/main.py \
+    --model llada_dist \
+    --tasks mbpp \
+    --max_length_generation 512 \
+    --temperature 0.1 \
+    --n_samples 15 \
+    --batch_size 4 \
+    --allow_code_execution
+
+echo "BigCode eval: multiple-py"
+accelerate launch \
+  --mixed_precision fp16 \
+  --deepspeed ds_config.json \
+  --num_processes 1 \
+  --gpu_ids "0" \
+  bigcode-evaluation-harness/main.py \
+    --model llada_dist \
+    --tasks multiple-py \
+    --max_length_generation 512 \
+    --temperature 0.2 \
+    --n_samples 200 \
+    --batch_size 4 \
+    --allow_code_execution
