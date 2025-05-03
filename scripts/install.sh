@@ -31,16 +31,17 @@ export TMPDIR
 
 ### 6) Upgrade pip & install everything, skipping the wheel‐cache
 pip install --upgrade pip
-pip install --no-cache-dir \
-  transformers==4.38.2 \
-  torch accelerate \
-  lm_eval==0.4.5 \
-  gradio \
-  huggingface_hub>=0.28.1,<0.29
 
 if [[ ! -d "bigcode-evaluation-harness" ]]; then
   git clone https://github.com/bigcode-project/bigcode-evaluation-harness.git
 fi
 pip install -e bigcode-evaluation-harness
+
+pip install --no-cache-dir \
+  transformers==4.38.2 \
+  torch accelerate \
+  lm_eval==0.4.5 \
+  gradio \
+  "huggingface_hub>=0.15.1,<0.29"
 
 echo "✅ llada is ready"
