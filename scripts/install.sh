@@ -45,4 +45,6 @@ pip install --no-cache-dir \
   "huggingface_hub>=0.15.1,<0.29" \
   "peft"
 
+pip install -e .
+
 echo "✅ llada is ready"
