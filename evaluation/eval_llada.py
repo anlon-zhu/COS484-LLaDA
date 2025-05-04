@@ -252,28 +252,46 @@ class LLaDAEvalHarness(LM):
         raise NotImplementedError
 
     @torch.no_grad()
-    def generate_until(self, context, max_length, stop, **generation_kwargs):
-        # tokenize context
-        ctx = self.tokenizer(context, return_tensors="pt")
-        ctx_ids = ctx.input_ids.to(self.device)
-        # diffusion generation
-        from generate import generate as ddpm_generate
-        steps = generation_kwargs.get('steps', 128)
-        block_length = generation_kwargs.get('block_length', max_length)
-        temperature = generation_kwargs.get('temperature', self.sampling_eps)
-        cfg_scale = generation_kwargs.get('cfg_scale', self.cfg)
-        remasking = generation_kwargs.get('remasking', 'low_confidence')
-        out = ddpm_generate(self.model, ctx_ids, steps=steps, gen_length=max_length, block_length=block_length,
-                            temperature=temperature, cfg_scale=cfg_scale, remasking=remasking,
-                            mask_id=self.mask_id)
-        # decode and truncate
-        gen_ids = out[:, ctx_ids.shape[-1]:]
-        text = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)[0]
-        for s in stop or []:
-            idx = text.find(s)
-            if idx != -1:
-                text = text[:idx]
-        return text
+    
+    @torch.no_grad()
+    def generate_until(self, requests: List[Instance]) -> List[str]:
+        """
+        Each request.args is a tuple:
+          (context: str, generation_kwargs: dict)
+        where generation_kwargs contains:
+          - 'stop': List[str]
+          - 'max_gen_toks' or 'max_length'
+          - plus any other keys from the task's `generation_kwargs`
+        """
+        outputs: List[str] = []
+        for req in requests:
+            context, gen_kwargs = req.args
+
+            max_length = gen_kwargs.get("max_length", gen_kwargs.get("max_gen_toks"))
+            stop_tokens = gen_kwargs.get("until", gen_kwargs.get("stop", []))
+
+            inputs = self.tokenizer(
+                context, return_tensors="pt", truncation=True, max_length=self.max_length
+            ).to(self.device)
+
+            generated_ids = self._my_diffusion_sample(
+                inputs.input_ids,
+                max_length=max_length,
+                cfg=self.cfg,
+                **gen_kwargs
+            )
+
+            text = self.tokenizer.decode(
+                generated_ids[0], skip_special_tokens=True
+            )
+
+            for s in stop_tokens:
+                idx = text.find(s)
+                if idx != -1:
+                    text = text[:idx]
+            outputs.append(text)
+
+        return outputs
 
 
 if __name__ == "__main__":
