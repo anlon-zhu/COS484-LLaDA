@@ -3,12 +3,13 @@
 #SBATCH --output=logs/eval_%j.out
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
-#SBATCH --gres=gpu:rtx_2080:1
+#SBATCH --account=pvl
+#SBATCH --gres=gpu:1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --mail-user=az4244@princeton.edu
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=END,FAIL
 
 # 1) Load conda & cache once
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
