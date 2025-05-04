@@ -11,7 +11,6 @@
 #SBATCH --mail-user=az4244@princeton.edu
 #SBATCH --mail-type=END,FAIL
 
-# 1) Load conda & cache once
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada
@@ -19,17 +18,9 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-# 3) Prime registry and run BigCode harness
-export PYTHONPATH=/n/fs/vl/anlon/COS484-LLaDA:${PYTHONPATH:-}
-python -c "import evaluation.eval_llada"
-
-
-accelerate launch \
-  bigcode-evaluation-harness/main.py \
-  --model llada_dist \
+accelerate launch eval_llada.py \
   --tasks humaneval \
-  --n_samples 20 \
-  --max_length_generation 512 \
-  --temperature 0.2 \
+  --num_fewshot 0 \
+  --model llada_dist \
   --batch_size 1 \
-  --allow_code_execution
+  --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.0,is_check_greedy=False,mc_num=128

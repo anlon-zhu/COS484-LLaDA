@@ -11,7 +11,6 @@
 #SBATCH --mail-user=az4244@princeton.edu
 #SBATCH --mail-type=END,FAIL
 
-# 1) Load conda & cache once
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada

@@ -251,8 +251,29 @@ class LLaDAEvalHarness(LM):
     def loglikelihood_rolling(self, requests):
         raise NotImplementedError
 
+    @torch.no_grad()
     def generate_until(self, context, max_length, stop, **generation_kwargs):
-        raise NotImplementedError
+        # tokenize context
+        ctx = self.tokenizer(context, return_tensors="pt")
+        ctx_ids = ctx.input_ids.to(self.device)
+        # diffusion generation
+        from generate import generate as ddpm_generate
+        steps = generation_kwargs.get('steps', 128)
+        block_length = generation_kwargs.get('block_length', max_length)
+        temperature = generation_kwargs.get('temperature', self.sampling_eps)
+        cfg_scale = generation_kwargs.get('cfg_scale', self.cfg)
+        remasking = generation_kwargs.get('remasking', 'low_confidence')
+        out = ddpm_generate(self.model, ctx_ids, steps=steps, gen_length=max_length, block_length=block_length,
+                            temperature=temperature, cfg_scale=cfg_scale, remasking=remasking,
+                            mask_id=self.mask_id)
+        # decode and truncate
+        gen_ids = out[:, ctx_ids.shape[-1]:]
+        text = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)[0]
+        for s in stop or []:
+            idx = text.find(s)
+            if idx != -1:
+                text = text[:idx]
+        return text
 
 
 if __name__ == "__main__":
