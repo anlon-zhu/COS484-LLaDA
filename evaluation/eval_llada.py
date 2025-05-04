@@ -252,9 +252,7 @@ class LLaDAEvalHarness(LM):
         raise NotImplementedError
 
     @torch.no_grad()
-    
-    @torch.no_grad()
-    def generate_until(self, requests: List[Instance]) -> List[str]:
+    def generate_until(self, requests):
         """
         Each request.args is a tuple:
           (context: str, generation_kwargs: dict)
