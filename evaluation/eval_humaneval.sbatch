@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=eval_llada
-#SBATCH --output=logs/eval_%j.out
+#SBATCH --job-name=eval_humaneval
+#SBATCH --output=logs/eval_humaneval_%j.out
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl

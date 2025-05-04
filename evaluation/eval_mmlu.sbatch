@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=eval_llada
-#SBATCH --output=logs/eval_%j.out
+#SBATCH --job-name=eval_mmlu
+#SBATCH --output=logs/eval_mmlu_%j.out
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
@@ -18,5 +18,4 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-# 2) MMLU few-shot u
 accelerate launch eval_llada.py --tasks mmlu --num_fewshot 5 --model llada_dist --batch_size 1 --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.0,is_check_greedy=False,mc_num=1
