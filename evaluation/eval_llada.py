@@ -76,6 +76,7 @@ class LLaDAEvalHarness(LM):
             offload_folder='./offload',
             offload_state_dict=True,
         )
+        self.model = torch.compile(self.model, mode="reduce-overhead")
         self.model.eval()
 
         self.device = torch.device(device)
