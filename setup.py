@@ -7,12 +7,12 @@ setup(
     py_modules=['generate', 'chat'],  # top-level scripts
     python_requires='>=3.8',
     install_requires=[
-        'accelerate',
+        'accelerate==4.38.2',
         'torch',
-        'transformers',
-        'datasets',
-        'lm-eval',
-        'tqdm',
-        'numpy',
+        'bitsandbytes',
+        'lm_eval==0.4.8',
+        'gradio',
+        'huggingface_hub>=0.15.1,<0.29',
+        'peft',
     ],
 )
