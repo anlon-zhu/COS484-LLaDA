@@ -85,7 +85,9 @@ class LLaDAEvalHarness(LM):
             self._rank = self.accelerator.local_process_index
             self._world_size = self.accelerator.num_processes
         else: 
-            self.model = self.model.to(device)
+            # skip `.to()` for 8-bit quantized models (already placed on devices)
+            if not getattr(self.model, "is_loaded_in_8bit", False):
+                self.model = self.model.to(device)
 
         self.mask_id = mask_id
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
