@@ -30,7 +30,7 @@ accelerate launch \
     --num_fewshot 5 \
     --model llada_dist \
     --batch_size 4 \
-    --model_args "model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.5,is_check_greedy=False,mc_num=32"
+    --model_args "model_path=GSAI-ML/LLaDA-8B-Base,cfg=0.5,is_check_greedy=False,mc_num=32"
 
 # — BigCode fused (single model load over 2 GPUs) —
 echo "BigCode fused evaluation"
