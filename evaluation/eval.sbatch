@@ -24,7 +24,7 @@ echo "GPQA few-shot evaluation"
 accelerate launch \
   --num_processes 2 \
   --mixed_precision fp16 \
-  --main_process_port 0 \
+  --main_process_port 29501 \
   eval_llada.py \
     --tasks gpqa_main_n_shot \
     --num_fewshot 5 \
@@ -37,7 +37,7 @@ echo "BigCode fused evaluation"
 accelerate launch \
   --num_processes 2 \
   --mixed_precision fp16 \
-  --main_process_port 0 \
+  --main_process_port 29501 \
   bigcode-evaluation-harness/main.py \
     --model llada_dist \
     --tasks humaneval,mbpp,multiple-py \
