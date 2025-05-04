@@ -18,9 +18,6 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-# 2) GPQA few‐shot under FSDP
-accelerate launch eval_llada.py --tasks ceval-valid --num_fewshot 5 --model llada_dist --batch_size 1 --model_args model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.0,is_check_greedy=False,mc_num=1
-
 # 3) Prime registry and run BigCode harness
 export PYTHONPATH=/n/fs/vl/anlon/COS484-LLaDA:$PYTHONPATH
 python -c "import evaluation.eval_llada"
