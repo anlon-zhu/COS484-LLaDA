@@ -3,7 +3,8 @@
 #SBATCH --output=logs/eval_%j.out
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:2            # two GPUs visible for device_map sharding
+#SBATCH --gres=gpu:1            # ← use 1 GPU
+#SBATCH --ntasks-per-node=1     # ← single process
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --mail-user=az4244@princeton.edu
@@ -18,7 +19,7 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-# — GPQA few‐shot (device_map shards model across GPU0 & GPU1) —
+# — GPQA few‐shot (single GPU) —
 echo "GPQA few-shot evaluation"
 accelerate launch \
   --mixed_precision fp16 \
@@ -27,9 +28,9 @@ accelerate launch \
     --num_fewshot 5 \
     --model llada_dist \
     --batch_size 2 \
-    --model_args "model_path=GSAI-ML/LLaDA-8B-Base,device_map=auto,torch_dtype=bfloat16,cfg=0.5,is_check_greedy=False,mc_num=32"
+    --model_args "model_path=GSAI-ML/LLaDA-8B-Base,cfg=0.5,is_check_greedy=False,mc_num=32"
 
-# — BigCode fused evaluation (same sharding) —
+# — BigCode fused evaluation (single GPU) —
 echo "BigCode fused evaluation"
 accelerate launch \
   --mixed_precision fp16 \
