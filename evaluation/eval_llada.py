@@ -254,41 +254,42 @@ class LLaDAEvalHarness(LM):
     @torch.no_grad()
     def generate_until(self, requests):
         """
-        Each request.args is a tuple:
-          (context: str, generation_kwargs: dict)
-        where generation_kwargs contains:
-          - 'stop': List[str]
-          - 'max_gen_toks' or 'max_length'
-          - plus any other keys from the task's `generation_kwargs`
+        Generate text for a batch of requests using DDPM sampler.
+        Each request.args: (context: str, generation_kwargs: dict).
+        generation_kwargs may include 'stop', 'max_length'/'max_gen_toks', 'steps', etc.
         """
         outputs: List[str] = []
         for req in requests:
             context, gen_kwargs = req.args
-
-            max_length = gen_kwargs.get("max_length", gen_kwargs.get("max_gen_toks"))
-            stop_tokens = gen_kwargs.get("until", gen_kwargs.get("stop", []))
-
-            inputs = self.tokenizer(
+            max_len = gen_kwargs.get("max_length", gen_kwargs.get("max_gen_toks", self.max_length))
+            stop_tokens = gen_kwargs.get("stop", [])
+            ctx = self.tokenizer(
                 context, return_tensors="pt", truncation=True, max_length=self.max_length
             ).to(self.device)
-
-            generated_ids = self._my_diffusion_sample(
-                inputs.input_ids,
-                max_length=max_length,
-                cfg=self.cfg,
-                **gen_kwargs
+            from generate import generate as ddpm_generate
+            steps = gen_kwargs.get('steps', 128)
+            block_length = gen_kwargs.get('block_length', max_len)
+            temperature = gen_kwargs.get('temperature', self.sampling_eps)
+            cfg_scale = gen_kwargs.get('cfg_scale', self.cfg)
+            remasking = gen_kwargs.get('remasking', 'low_confidence')
+            out_ids = ddpm_generate(
+                self.model,
+                ctx.input_ids,
+                steps=steps,
+                gen_length=max_len,
+                block_length=block_length,
+                temperature=temperature,
+                cfg_scale=cfg_scale,
+                remasking=remasking,
+                mask_id=self.mask_id,
             )
-
-            text = self.tokenizer.decode(
-                generated_ids[0], skip_special_tokens=True
-            )
-
+            gen_ids = out_ids[:, ctx.input_ids.shape[-1]:]
+            text = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)[0]
             for s in stop_tokens:
                 idx = text.find(s)
                 if idx != -1:
                     text = text[:idx]
             outputs.append(text)
-
         return outputs
 
 
