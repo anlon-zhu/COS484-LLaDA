@@ -10,20 +10,21 @@
 #SBATCH --mail-user=az4244@princeton.edu
 #SBATCH --mail-type=ALL
 
-# 1) Load conda once
+# — Load conda once —
 export CONDA_ENVS_PATH=/n/fs/vl/anlon/envs
 source /usr/local/anaconda3/2024.02/etc/profile.d/conda.sh
 conda activate llada
 
-# 2) Go to eval dir and warm up cache just once
+# — Warm up the cache just once —
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-# 3) GPQA few‐shot (mc_num reduced to 32, batch_size=4, 2 GPUs/processes)
+# — GPQA few‐shot (mc_num=32, batch_size=4, 2 GPUs/processes) —
 echo "GPQA few-shot evaluation"
 accelerate launch \
   --num_processes 2 \
   --mixed_precision fp16 \
+  --main_process_port 0 \
   eval_llada.py \
     --tasks gpqa_main_n_shot \
     --num_fewshot 5 \
@@ -31,11 +32,12 @@ accelerate launch \
     --batch_size 4 \
     --model_args "model_path='GSAI-ML/LLaDA-8B-Base',cfg=0.5,is_check_greedy=False,mc_num=32"
 
-# 4) BigCode harness – fused tasks (single model load)
+# — BigCode fused (single model load over 2 GPUs) —
 echo "BigCode fused evaluation"
 accelerate launch \
   --num_processes 2 \
   --mixed_precision fp16 \
+  --main_process_port 0 \
   bigcode-evaluation-harness/main.py \
     --model llada_dist \
     --tasks humaneval,mbpp,multiple-py \
