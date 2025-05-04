@@ -5,6 +5,7 @@
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
 #SBATCH --gres=gpu:1
+#SBATCH --constraint="rtx_2080|rtx_3090"
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
