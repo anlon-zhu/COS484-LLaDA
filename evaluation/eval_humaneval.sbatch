@@ -20,7 +20,7 @@ cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
 # 3) Prime registry and run BigCode harness
-export PYTHONPATH=/n/fs/vl/anlon/COS484-LLaDA:$PYTHONPATH
+export PYTHONPATH=/n/fs/vl/anlon/COS484-LLaDA:${PYTHONPATH:-}
 python -c "import evaluation.eval_llada"
 accelerate launch \
   bigcode-evaluation-harness/main.py \
