@@ -3,8 +3,7 @@
 #SBATCH --output=logs/eval_%j.out
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:2
-#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:2            # two GPUs visible for device_map sharding
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --mail-user=az4244@princeton.edu
@@ -19,30 +18,26 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-# — GPQA few‐shot (mc_num=32, batch_size=4, 2 GPUs/processes) —
+# — GPQA few‐shot (device_map shards model across GPU0 & GPU1) —
 echo "GPQA few-shot evaluation"
 accelerate launch \
-  --num_processes 2 \
   --mixed_precision fp16 \
-  --main_process_port 29501 \
   eval_llada.py \
     --tasks gpqa_main_n_shot \
     --num_fewshot 5 \
     --model llada_dist \
-    --batch_size 4 \
-    --model_args "model_path=GSAI-ML/LLaDA-8B-Base,cfg=0.5,is_check_greedy=False,mc_num=32"
+    --batch_size 2 \
+    --model_args "model_path=GSAI-ML/LLaDA-8B-Base,device_map=auto,torch_dtype=bfloat16,cfg=0.5,is_check_greedy=False,mc_num=32"
 
-# — BigCode fused (single model load over 2 GPUs) —
+# — BigCode fused evaluation (same sharding) —
 echo "BigCode fused evaluation"
 accelerate launch \
-  --num_processes 2 \
   --mixed_precision fp16 \
-  --main_process_port 29501 \
   bigcode-evaluation-harness/main.py \
     --model llada_dist \
     --tasks humaneval,mbpp,multiple-py \
     --n_samples 200,15,200 \
     --max_length_generation 512 \
     --temperature 0.2,0.1,0.2 \
-    --batch_size 4 \
+    --batch_size 2 \
     --allow_code_execution
