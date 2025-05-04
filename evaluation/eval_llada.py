@@ -15,7 +15,7 @@ from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 from tqdm import tqdm
 
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
 
 
 def set_seed(seed):
@@ -65,11 +65,17 @@ class LLaDAEvalHarness(LM):
         else:
             self.accelerator = None
         
-        model_kwargs = {}
-        if self.accelerator is not None:
-            model_kwargs.update({'device_map': {'': f'{self.accelerator.device}'}})
-
-        self.model = AutoModel.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True, **model_kwargs)
+        # use 8-bit quantization with CPU offload
+        bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+        self.model = AutoModel.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            quantization_config=bnb_config,
+            device_map='auto',
+            offload_folder='./offload',
+            offload_state_dict=True,
+        )
         self.model.eval()
 
         self.device = torch.device(device)

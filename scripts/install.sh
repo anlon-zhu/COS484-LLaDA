@@ -39,9 +39,10 @@ pip install -e bigcode-evaluation-harness
 
 pip install --no-cache-dir \
   transformers==4.38.2 \
-  torch accelerate \
+  torch accelerate bitsandbytes \
   lm_eval==0.4.5 \
   gradio \
-  "huggingface_hub>=0.15.1,<0.29"
+  "huggingface_hub>=0.15.1,<0.29" \
+  "peft"
 
 echo "✅ llada is ready"
