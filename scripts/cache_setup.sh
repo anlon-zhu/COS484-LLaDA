@@ -34,9 +34,10 @@ export HF_METRICS_CACHE="${CACHE_DIR}/metrics"
 export HF_MODULES_CACHE="${CACHE_DIR}/modules"
 export ACCELERATE_LOG_LEVEL=DEBUG
 export TRANSFORMERS_VERBOSITY=debug
+export TRITON_CACHE_DIR="${CACHE_DIR}/triton_cache"
 
 # Create cache directories
-mkdir -p "${PIP_CACHE_DIR}" "${TMPDIR}" "${TRANSFORMERS_CACHE}" "${HUGGINGFACE_HUB_CACHE}" "${HF_DATASETS_CACHE}" "${HF_METRICS_CACHE}" "${HF_MODULES_CACHE}"
+mkdir -p "${PIP_CACHE_DIR}" "${TMPDIR}" "${TRANSFORMERS_CACHE}" "${HUGGINGFACE_HUB_CACHE}" "${HF_DATASETS_CACHE}" "${HF_METRICS_CACHE}" "${HF_MODULES_CACHE}" "${TRITON_CACHE_DIR}"
 
 # Login to HuggingFace Hub if token provided
 if [[ -n "${HUGGINGFACE_HUB_TOKEN:-}" ]]; then
