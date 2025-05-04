@@ -6,6 +6,13 @@ set -euo pipefail
 # Usage: source scripts/cache_setup.sh
 # -----------------------------------------------------------------------------
 
+# Add loading of .env from project root for HUGGINGFACE_HUB_TOKEN
+ENV_FILE="$(dirname "${BASH_SOURCE[0]}")/../.env"
+if [[ -f "$ENV_FILE" ]]; then
+  # Export variables from .env (ignoring comments)
+  export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
+
 if [[ -z "${CONDA_PREFIX:-}" ]]; then
   echo "Error: CONDA_PREFIX is not set. Please activate your Conda environment first."
   return 1
@@ -28,6 +35,11 @@ export HF_MODULES_CACHE="${CACHE_DIR}/modules"
 
 # Create cache directories
 mkdir -p "${PIP_CACHE_DIR}" "${TMPDIR}" "${TRANSFORMERS_CACHE}" "${HUGGINGFACE_HUB_CACHE}" "${HF_DATASETS_CACHE}" "${HF_METRICS_CACHE}" "${HF_MODULES_CACHE}"
+
+# Login to HuggingFace Hub if token provided
+if [[ -n "${HUGGINGFACE_HUB_TOKEN:-}" ]]; then
+  huggingface-cli login --token "${HUGGINGFACE_HUB_TOKEN}"
+fi
 
 cat <<EOF
 
