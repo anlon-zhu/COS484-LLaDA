@@ -10,15 +10,19 @@ import torch.nn.functional as F
 from datasets import Dataset
 from lm_eval.__main__ import cli_evaluate
 from lm_eval.api.instance import Instance
+import os
+import torch
+import torch.nn.functional as F
+from datasets import Dataset
+from tqdm import tqdm
+from accelerate import Accelerator
 from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
-from tqdm import tqdm
-from accelerate import PartialState
+from lm_eval.api.instance import Instance
+from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
 
-import os
 # reduce memory fragmentation for large allocations
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
-from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
 
 # monkey-patch TaskConfig to ignore unexpected 'group' kwarg
 from lm_eval.api.task import TaskConfig
@@ -39,49 +43,50 @@ def set_seed(seed):
 
 @register_model("llada_dist")
 class LLaDAEvalHarness(LM):
-    # Define class attributes
-    rank: int = 0
-    world_size: int = 1
-    device: str = "cuda"
-    model = None
-    tokenizer = None
-    mask_id: int = 103
-    mc_num: int = 128
-    batch_size: int = 32
-    max_length: int = 4096
-    is_check_greedy: bool = True
-    cfg: float = 0.0
-    sampling_eps: float = 0.0
-    
     def __init__(
         self,
-        model_path: str,
-        mask_id: int = 103,
-        max_length: int = 4096,
-        batch_size: int = 32,
-        mc_num: int = 128,
-        is_check_greedy: bool = True,
-        cfg: float = 0.0,
-        device: str = "cuda",
+        model_path='',
+        mask_id=126336,
+        max_length=4096,
+        batch_size=32,
+        mc_num=128,
+        is_check_greedy=True,
+        cfg=0.,
+        steps=1024,
+        gen_length=1024,
+        block_length=1024,
+        remasking='low_confidence',
+        device="cuda",
         **kwargs,
     ):
         '''
-        Initialize the model for evaluation.
+        Args:
+            model_path: LLaDA-8B-Base model path.
+            mask_id: The token id of [MASK] is 126336.
             max_length: the max sequence length.
             batch_size: mini batch size.
             mc_num: Monte Carlo estimation iterations
+            is_check_greedy: For certain metrics like LAMBADA, the evaluation requires the model to verify whether the answer 
+                             is generated through greedy sampling conditioned on the prompt (note that this differs from conditional
+                             generation). We implement this verification through the suffix_greedy_prediction() function, which 
+                             returns a True/False judgment used for accuracy calculation. 
+                             When is_check_greedy is set to True, the lm-evaluation-harness library automatically invokes this function. 
+                             However, since none of the metrics in the LLaDA paper (https://arxiv.org/abs/2502.09992) require this functionality, 
+                             we recommend setting is_check_greedy to False. This configuration causes suffix_greedy_prediction() to return False 
+                             by default, significantly accelerating the evaluation process.
+            cfg_scale: Unsupervised classifier-free guidance scale.
         '''
         super().__init__()
 
-        # Initialize distributed state
-        distributed_state = PartialState()
-        LLaDAEvalHarness.rank = distributed_state.process_index
-        LLaDAEvalHarness.world_size = distributed_state.num_processes
-        LLaDAEvalHarness.device = distributed_state.device
+        # Initialize accelerator for distributed training
+        self.accelerator = Accelerator()
+        self.device = self.accelerator.device
+        self._rank = self.accelerator.process_index
+        self._world_size = self.accelerator.num_processes
         
-        # use 8-bit quantization with CPU offload for weights
+        # Initialize model with 8-bit quantization
         bnb_config = BitsAndBytesConfig(load_in_8bit=True, offload_to_cpu=True)
-        LLaDAEvalHarness.model = AutoModel.from_pretrained(
+        self.model = AutoModel.from_pretrained(
             model_path,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
@@ -90,27 +95,26 @@ class LLaDAEvalHarness(LM):
             offload_folder='./offload',
             offload_state_dict=True,
         )
-        LLaDAEvalHarness.model.eval()
+        self.model.eval()
         
-        # Move model to correct device if not using 8-bit quantization
-        if not getattr(LLaDAEvalHarness.model, "is_loaded_in_8bit", False):
-            LLaDAEvalHarness.model.to(LLaDAEvalHarness.device)
+        # Let Accelerator handle model placement
+        self.model = self.accelerator.prepare(self.model)
 
-        LLaDAEvalHarness.mask_id = mask_id
-        LLaDAEvalHarness.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
+        self.mask_id = mask_id
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
-        # Set class-level attributes
-        LLaDAEvalHarness.mc_num = mc_num
-        LLaDAEvalHarness.batch_size = int(batch_size)
-        LLaDAEvalHarness.sampling_eps = 0.0
-        LLaDAEvalHarness.max_length = max_length
-        LLaDAEvalHarness.is_check_greedy = is_check_greedy
-        LLaDAEvalHarness.cfg = cfg
+        self.mc_num = mc_num
+        self.batch_size = int(batch_size)
+        assert mc_num % self.batch_size == 0
+        self.sampling_eps = 0.
+        self.max_length = max_length
+        self.is_check_greedy = is_check_greedy
 
-        print(f'model: {model_path}')
-        print(f'Is check greedy: {is_check_greedy}')
-        print(f'cfg: {cfg}')
-    
+        self.cfg = cfg
+        self.steps = steps
+        self.gen_length = gen_length
+        self.block_length = block_length
+        self.remasking = remasking    
     @property
     def rank(self):
         return self._rank
@@ -246,59 +250,46 @@ class LLaDAEvalHarness(LM):
                 is_target_greedy_dec = self.suffix_greedy_prediction(prefix, target)
 
                 out.append((ll, 1.0 if is_target_greedy_dec else 0.0))
-                print('=' * 20)
-                print('prefix: ', elem['prefix_text'])
-                print('target: ', elem['target_text'])
-                print(ll, is_target_greedy_dec)
-                print('=' * 20, end='\n\n')
         torch.cuda.empty_cache()
         return out
 
     def loglikelihood_rolling(self, requests):
         raise NotImplementedError
 
-    @torch.no_grad()
-    def generate_until(self, requests):
-        """
-        Generate text for a batch of requests using DDPM sampler in batched fashion.
-        Each request.args: (context: str, generation_kwargs: dict).
-        """
-        outputs = []
-        # show progress only on rank 0 if distributed
-        disable_bar = hasattr(self, '_rank') and self._rank != 0
-        pbar = tqdm(total=len(requests), disable=disable_bar, desc="DDPM generate_until")
-        from generate import generate as ddpm_generate
-        for i in range(0, len(requests), self.batch_size):
-            batch = requests[i:i + self.batch_size]
-            for req in batch:
-                context, gen_kwargs = req.args
-                max_len = gen_kwargs.get("max_length", gen_kwargs.get("max_gen_toks", self.max_length))
-                stop_tokens = gen_kwargs.get("stop", [])
-                ctx = self.tokenizer(
-                    context, return_tensors="pt", truncation=True, max_length=self.max_length
-                ).to(self.device)
-                out_ids = ddpm_generate(
-                    self.model,
-                    ctx.input_ids,
-                    steps=gen_kwargs.get('steps', 128),
-                    gen_length=max_len,
-                    block_length=gen_kwargs.get('block_length', max_len),
-                    temperature=gen_kwargs.get('temperature', self.sampling_eps),
-                    cfg_scale=gen_kwargs.get('cfg_scale', self.cfg),
-                    remasking=gen_kwargs.get('remasking', 'low_confidence'),
-                    mask_id=self.mask_id,
-                )
-                gen_ids = out_ids[:, ctx.input_ids.shape[-1]:]
-                text = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)[0]
-                for s in stop_tokens:
-                    idx = text.find(s)
-                    if idx != -1:
-                        text = text[:idx]
-                outputs.append(text)
-            pbar.update(len(batch))
-            torch.cuda.empty_cache()
-        return outputs
+    def generate_until(self, requests: list[Instance]):
+        def _tokenize(e):
+            return {
+                "question": self.tokenizer(e["question"])["input_ids"],
+                "question_text": e["question"],
+                "until": e["until"],
+            }
 
+        ds = [{"question": req.args[0], "until": req.args[1]['until']} for req in requests]
+        ds = Dataset.from_list(ds)
+        ds = ds.map(_tokenize)
+        ds = ds.with_format("torch")
+
+        out = []
+        for elem in tqdm(ds, desc="Generating..."):
+            prompt = elem["question"].unsqueeze(0).to(self.device)
+            stop_tokens = elem["until"]
+ 
+            generated_answer = generate(self.model, prompt, steps=self.steps, gen_length=self.gen_length, block_length=self.block_length, 
+                                        temperature=0, cfg_scale=self.cfg, remasking=self.remasking, mask_id=self.mask_id)
+            
+            generated_answer = self.tokenizer.decode(generated_answer[0][prompt.shape[1]:], skip_special_tokens=False)
+            for stop_seq in stop_tokens:
+                    if stop_seq in generated_answer:
+                        generated_answer = generated_answer.split(stop_seq)[0]
+
+            # remove special tokens
+            generated_answer_ids = self.tokenizer(generated_answer)["input_ids"]
+            generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
+            out.append(generated_answer)
+
+            self.accelerator.wait_for_everyone()
+
+        return out
 
 if __name__ == "__main__":
     set_seed(1234)
