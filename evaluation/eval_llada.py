@@ -15,6 +15,9 @@ from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 from tqdm import tqdm
 
+import os
+# reduce memory fragmentation for large allocations
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
 from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
 
 
@@ -65,8 +68,8 @@ class LLaDAEvalHarness(LM):
         else:
             self.accelerator = None
         
-        # use 8-bit quantization with CPU offload
-        bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+        # use 8-bit quantization with CPU offload for weights
+        bnb_config = BitsAndBytesConfig(load_in_8bit=True, offload_to_cpu=True)
         self.model = AutoModel.from_pretrained(
             model_path,
             trust_remote_code=True,
@@ -76,7 +79,6 @@ class LLaDAEvalHarness(LM):
             offload_folder='./offload',
             offload_state_dict=True,
         )
-        self.model = torch.compile(self.model, mode="reduce-overhead")
         self.model.eval()
 
         self.device = torch.device(device)
