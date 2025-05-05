@@ -10,7 +10,7 @@ setup(
         'accelerate==4.38.2',
         'torch',
         'bitsandbytes',
-        'lm_eval==0.4.8',
+        'lm_eval>=0.4.8',
         'gradio',
         'huggingface_hub>=0.15.1,<0.29',
         'peft',
