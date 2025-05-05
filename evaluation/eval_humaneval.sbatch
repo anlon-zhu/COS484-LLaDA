@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=eval3_humaneval
-#SBATCH --output=logs/eval3_humaneval_%j.out
+#SBATCH --job-name=eval_instruct_humaneval
+#SBATCH --output=logs/eval_instruct_humaneval_%j.out
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
@@ -21,8 +21,8 @@ source ../scripts/cache_setup.sh
 export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch eval_llada.py \
-  --tasks humaneval \
-  --num_fewshot 3 \
+  --tasks humaneval_instruct \
+  --num_fewshot 1 \
   --model llada_dist \
   --batch_size 1 \
   --model_args model_path='GSAI-ML/LLaDA-8B-Instruct',cfg=0.0,is_check_greedy=False,mc_num=128 \
