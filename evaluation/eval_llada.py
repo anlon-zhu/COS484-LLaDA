@@ -85,19 +85,17 @@ class LLaDAEvalHarness(LM):
         self._world_size = self.accelerator.num_processes
         
         # Initialize model with 8-bit quantization
-        bnb_config = BitsAndBytesConfig(load_in_8bit=True, offload_to_cpu=True)
+        bnb_config = BitsAndBytesConfig(load_in_8bit=True)
         self.model = AutoModel.from_pretrained(
             model_path,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             quantization_config=bnb_config,
-            device_map='auto',  # Let Accelerate handle device placement
-            offload_folder='./offload',
-            offload_state_dict=True,
+            torch_dtype=torch.float16,  # Use fp16 for efficiency
         )
         self.model.eval()
         
-        # Let Accelerator handle model placement
+        # Let Accelerate handle model placement
         self.model = self.accelerator.prepare(self.model)
 
         self.mask_id = mask_id
