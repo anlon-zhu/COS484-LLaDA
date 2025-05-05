@@ -85,9 +85,15 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
             x0 = torch.argmax(logits_with_noise, dim=-1) # b, l
 
             if remasking == 'low_confidence':
-                p = F.softmax(logits.float(), dim=-1)
-                x0_p = torch.squeeze(
-                    torch.gather(p, dim=-1, index=torch.unsqueeze(x0, -1)), -1) # b, l
+                # compute probability of chosen tokens without full softmax to save memory
+                logits_f = logits.float()
+                # log-sum-exp for normalization
+                lognorm = torch.logsumexp(logits_f, dim=-1)  # b, l
+                # gather logits of chosen tokens
+                selected = torch.squeeze(
+                    torch.gather(logits_f, dim=-1, index=torch.unsqueeze(x0, -1)), -1
+                )  # b, l
+                x0_p = torch.exp(selected - lognorm)
             elif remasking == 'random':
                 x0_p = torch.rand((x0.shape[0], x0.shape[1]), device=x0.device)
             else:
