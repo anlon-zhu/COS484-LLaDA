@@ -1,10 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=eval_codexglue_java
-#SBATCH --output=logs/eval_codexglue_java_%j.out
+#SBATCH --output=logs/%j_eval_codexglue_java.out
 #SBATCH --time=70:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
-#SBATCH --gres=gpu:a6000:2
+#SBATCH --gres=gpu:a6000:1
+#SBATCH --array=0-4%5
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
@@ -18,15 +19,18 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
+SLOTS=5
+
 export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch \
-  --num_processes 2 \
   eval_llada.py \
   --tasks code2text_java \
+  --rank $SLURM_ARRAY_TASK_ID \
+  --world_size $SLOTS \
   --num_fewshot 0 \
   --model llada_dist \
-  --batch_size 8 \
+  --batch_size 4 \
   --model_args model_path='GSAI-ML/LLaDA-8B-Instruct',cfg=0.0,is_check_greedy=True,mc_num=16 \
   --confirm_run_unsafe_code \
   --output_path ../results/codexglue_java_instruct_zero_shot.json
