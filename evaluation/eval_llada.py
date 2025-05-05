@@ -14,6 +14,7 @@ import os
 import torch
 import torch.nn.functional as F
 from datasets import Dataset
+import sys
 from tqdm import tqdm
 from accelerate import Accelerator
 from lm_eval.api.model import LM
@@ -272,7 +273,9 @@ class LLaDAEvalHarness(LM):
         pbar = tqdm(
             total=len(ds),
             disable=(self._rank != 0),
-            desc="Running generate_until requests"
+            desc=f"[Rank {self._rank}] Generating",
+            file=sys.stdout,
+            ncols=80
         )
 
         for elem in ds:
