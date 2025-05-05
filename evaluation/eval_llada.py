@@ -20,6 +20,13 @@ import os
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
 from transformers import AutoTokenizer, AutoModel, BitsAndBytesConfig
 
+# monkey-patch TaskConfig to ignore unexpected 'group' kwarg
+from lm_eval.api.task import TaskConfig
+_orig_tc_init = TaskConfig.__init__
+def _patched_tc_init(self, *args, **kwargs):
+    kwargs.pop('group', None)
+    return _orig_tc_init(self, *args, **kwargs)
+TaskConfig.__init__ = _patched_tc_init
 
 def set_seed(seed):
     torch.manual_seed(seed)
