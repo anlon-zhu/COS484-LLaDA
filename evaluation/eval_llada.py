@@ -78,6 +78,11 @@ class LLaDAEvalHarness(LM):
         )
         self.model = torch.compile(self.model, mode="reduce-overhead")
         self.model.eval()
+        # enable activation checkpointing if supported to reduce memory
+        try:
+            self.model.gradient_checkpointing_enable()
+        except AttributeError:
+            pass
 
         self.device = torch.device(device)
         if self.accelerator is not None:
@@ -254,42 +259,43 @@ class LLaDAEvalHarness(LM):
     @torch.no_grad()
     def generate_until(self, requests):
         """
-        Generate text for a batch of requests using DDPM sampler.
+        Generate text for a batch of requests using DDPM sampler in batched fashion.
         Each request.args: (context: str, generation_kwargs: dict).
-        generation_kwargs may include 'stop', 'max_length'/'max_gen_toks', 'steps', etc.
         """
-        outputs: List[str] = []
-        for req in requests:
-            context, gen_kwargs = req.args
-            max_len = gen_kwargs.get("max_length", gen_kwargs.get("max_gen_toks", self.max_length))
-            stop_tokens = gen_kwargs.get("stop", [])
-            ctx = self.tokenizer(
-                context, return_tensors="pt", truncation=True, max_length=self.max_length
-            ).to(self.device)
-            from generate import generate as ddpm_generate
-            steps = gen_kwargs.get('steps', 128)
-            block_length = gen_kwargs.get('block_length', max_len)
-            temperature = gen_kwargs.get('temperature', self.sampling_eps)
-            cfg_scale = gen_kwargs.get('cfg_scale', self.cfg)
-            remasking = gen_kwargs.get('remasking', 'low_confidence')
-            out_ids = ddpm_generate(
-                self.model,
-                ctx.input_ids,
-                steps=steps,
-                gen_length=max_len,
-                block_length=block_length,
-                temperature=temperature,
-                cfg_scale=cfg_scale,
-                remasking=remasking,
-                mask_id=self.mask_id,
-            )
-            gen_ids = out_ids[:, ctx.input_ids.shape[-1]:]
-            text = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)[0]
-            for s in stop_tokens:
-                idx = text.find(s)
-                if idx != -1:
-                    text = text[:idx]
-            outputs.append(text)
+        outputs = []
+        # show progress only on rank 0 if distributed
+        disable_bar = hasattr(self, '_rank') and self._rank != 0
+        pbar = tqdm(total=len(requests), disable=disable_bar, desc="DDPM generate_until")
+        from generate import generate as ddpm_generate
+        for i in range(0, len(requests), self.batch_size):
+            batch = requests[i:i + self.batch_size]
+            for req in batch:
+                context, gen_kwargs = req.args
+                max_len = gen_kwargs.get("max_length", gen_kwargs.get("max_gen_toks", self.max_length))
+                stop_tokens = gen_kwargs.get("stop", [])
+                ctx = self.tokenizer(
+                    context, return_tensors="pt", truncation=True, max_length=self.max_length
+                ).to(self.device)
+                out_ids = ddpm_generate(
+                    self.model,
+                    ctx.input_ids,
+                    steps=gen_kwargs.get('steps', 128),
+                    gen_length=max_len,
+                    block_length=gen_kwargs.get('block_length', max_len),
+                    temperature=gen_kwargs.get('temperature', self.sampling_eps),
+                    cfg_scale=gen_kwargs.get('cfg_scale', self.cfg),
+                    remasking=gen_kwargs.get('remasking', 'low_confidence'),
+                    mask_id=self.mask_id,
+                )
+                gen_ids = out_ids[:, ctx.input_ids.shape[-1]:]
+                text = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)[0]
+                for s in stop_tokens:
+                    idx = text.find(s)
+                    if idx != -1:
+                        text = text[:idx]
+                outputs.append(text)
+            pbar.update(len(batch))
+            torch.cuda.empty_cache()
         return outputs
 
 
