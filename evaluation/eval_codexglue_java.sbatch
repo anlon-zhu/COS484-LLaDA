@@ -20,8 +20,9 @@ source ../scripts/cache_setup.sh
 
 export HF_ALLOW_CODE_EVAL="1"
 
-accelerate launch eval_llada.py \
+accelerate launch \
   --num_processes 2 \
+  eval_llada.py \
   --tasks code2text_java \
   --num_fewshot 0 \
   --model llada_dist \
