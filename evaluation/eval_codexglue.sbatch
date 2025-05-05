@@ -21,7 +21,7 @@ source ../scripts/cache_setup.sh
 export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch eval_llada.py \
-  --tasks codexglue_code2text \
+  --tasks code2text_java \
   --num_fewshot 0 \
   --model llada_dist \
   --batch_size 1 \
