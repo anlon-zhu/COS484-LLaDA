@@ -78,11 +78,6 @@ class LLaDAEvalHarness(LM):
         )
         self.model = torch.compile(self.model, mode="reduce-overhead")
         self.model.eval()
-        # enable activation checkpointing if supported to reduce memory
-        try:
-            self.model.gradient_checkpointing_enable()
-        except AttributeError:
-            pass
 
         self.device = torch.device(device)
         if self.accelerator is not None:
