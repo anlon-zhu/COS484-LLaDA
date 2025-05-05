@@ -46,11 +46,22 @@ class LLaDAEvalHarness(LM):
     model = None
     tokenizer = None
     mask_id: int = 103
+    mc_num: int = 128
+    batch_size: int = 32
+    max_length: int = 4096
+    is_check_greedy: bool = True
+    cfg: float = 0.0
+    sampling_eps: float = 0.0
     
     def __init__(
         self,
         model_path: str,
         mask_id: int = 103,
+        max_length: int = 4096,
+        batch_size: int = 32,
+        mc_num: int = 128,
+        is_check_greedy: bool = True,
+        cfg: float = 0.0,
         device: str = "cuda",
         **kwargs,
     ):
@@ -88,14 +99,14 @@ class LLaDAEvalHarness(LM):
         LLaDAEvalHarness.mask_id = mask_id
         LLaDAEvalHarness.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
 
-        self.mc_num = mc_num
-        self.batch_size = int(batch_size)
-        assert mc_num % self.batch_size == 0
-        self.sampling_eps = 0.
-        self.max_length = max_length
-        self.is_check_greedy = is_check_greedy
+        # Set class-level attributes
+        LLaDAEvalHarness.mc_num = mc_num
+        LLaDAEvalHarness.batch_size = int(batch_size)
+        LLaDAEvalHarness.sampling_eps = 0.0
+        LLaDAEvalHarness.max_length = max_length
+        LLaDAEvalHarness.is_check_greedy = is_check_greedy
+        LLaDAEvalHarness.cfg = cfg
 
-        self.cfg = cfg
         print(f'model: {model_path}')
         print(f'Is check greedy: {is_check_greedy}')
         print(f'cfg: {cfg}')
