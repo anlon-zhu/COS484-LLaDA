@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+cd "$(dirname \"$0\")"
 
 sbatch eval_mbpp.sbatch
 sbatch eval_mbpp_3shot.sbatch
