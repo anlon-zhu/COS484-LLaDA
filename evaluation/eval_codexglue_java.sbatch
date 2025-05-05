@@ -4,9 +4,9 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
-#SBATCH --gres=gpu:a6000:5
+#SBATCH --gres=gpu:a6000:8
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=5
+#SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --mail-user=az4244@princeton.edu
@@ -23,7 +23,7 @@ export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch \
   --multi_gpu \
-  --num_processes 5 \
+  --num_processes 8 \
   eval_llada.py \
   --tasks code2text_java \
   --num_fewshot 0 \
