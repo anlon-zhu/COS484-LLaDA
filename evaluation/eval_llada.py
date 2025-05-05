@@ -39,45 +39,38 @@ def set_seed(seed):
 
 @register_model("llada_dist")
 class LLaDAEvalHarness(LM):
+    # Define class attributes
+    rank: int = 0
+    world_size: int = 1
+    device: str = "cuda"
+    model = None
+    tokenizer = None
+    mask_id: int = 103
+    
     def __init__(
         self,
-        model_path='',
-        mask_id=126336,
-        max_length=4096,
-        batch_size=32,
-        mc_num=128,
-        is_check_greedy=True,
-        cfg=0.,
-        device="cuda",
+        model_path: str,
+        mask_id: int = 103,
+        device: str = "cuda",
+        **kwargs,
     ):
         '''
-        Args:
-            model_path: LLaDA-8B-Base model path.
-            mask_id: The token id of [MASK] is 126336.
+        Initialize the model for evaluation.
             max_length: the max sequence length.
             batch_size: mini batch size.
             mc_num: Monte Carlo estimation iterations
-            is_check_greedy: For certain metrics like LAMBADA, the evaluation requires the model to verify whether the answer 
-                             is generated through greedy sampling conditioned on the prompt (note that this differs from conditional
-                             generation). We implement this verification through the suffix_greedy_prediction() function, which 
-                             returns a True/False judgment used for accuracy calculation. 
-                             When is_check_greedy is set to True, the lm-evaluation-harness library automatically invokes this function. 
-                             However, since none of the metrics in the LLaDA paper (https://arxiv.org/abs/2502.09992) require this functionality, 
-                             we recommend setting is_check_greedy to False. This configuration causes suffix_greedy_prediction() to return False 
-                             by default, significantly accelerating the evaluation process.
-            cfg_scale: Unsupervised classifier-free guidance scale.
         '''
         super().__init__()
 
         # Initialize distributed state
         distributed_state = PartialState()
-        self.rank = distributed_state.process_index
-        self.world_size = distributed_state.num_processes
-        self.device = distributed_state.device
+        LLaDAEvalHarness.rank = distributed_state.process_index
+        LLaDAEvalHarness.world_size = distributed_state.num_processes
+        LLaDAEvalHarness.device = distributed_state.device
         
         # use 8-bit quantization with CPU offload for weights
         bnb_config = BitsAndBytesConfig(load_in_8bit=True, offload_to_cpu=True)
-        self.model = AutoModel.from_pretrained(
+        LLaDAEvalHarness.model = AutoModel.from_pretrained(
             model_path,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
@@ -86,14 +79,14 @@ class LLaDAEvalHarness(LM):
             offload_folder='./offload',
             offload_state_dict=True,
         )
-        self.model.eval()
+        LLaDAEvalHarness.model.eval()
         
         # Move model to correct device if not using 8-bit quantization
-        if not getattr(self.model, "is_loaded_in_8bit", False):
-            self.model.to(self.device)
+        if not getattr(LLaDAEvalHarness.model, "is_loaded_in_8bit", False):
+            LLaDAEvalHarness.model.to(LLaDAEvalHarness.device)
 
-        self.mask_id = mask_id
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
+        LLaDAEvalHarness.mask_id = mask_id
+        LLaDAEvalHarness.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
 
         self.mc_num = mc_num
         self.batch_size = int(batch_size)
