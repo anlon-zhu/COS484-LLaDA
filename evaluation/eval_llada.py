@@ -1,7 +1,6 @@
 '''
 This file is inspired by the code from https://github.com/ML-GSAI/SMDM
 '''
-import accelerate
 import torch
 import re
 from pathlib import Path
@@ -14,6 +13,7 @@ from lm_eval.api.instance import Instance
 from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 from tqdm import tqdm
+from accelerate import PartialState
 
 import os
 # reduce memory fragmentation for large allocations
@@ -69,11 +69,11 @@ class LLaDAEvalHarness(LM):
         '''
         super().__init__()
 
-        accelerator = accelerate.Accelerator()
-        if accelerator.num_processes > 1:
-            self.accelerator = accelerator
-        else:
-            self.accelerator = None
+        # Initialize distributed state
+        distributed_state = PartialState()
+        self.rank = distributed_state.process_index
+        self.world_size = distributed_state.num_processes
+        self.device = distributed_state.device
         
         # use 8-bit quantization with CPU offload for weights
         bnb_config = BitsAndBytesConfig(load_in_8bit=True, offload_to_cpu=True)
@@ -82,22 +82,15 @@ class LLaDAEvalHarness(LM):
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             quantization_config=bnb_config,
-            device_map='auto',
+            device_map='auto',  # Let Accelerate handle device placement
             offload_folder='./offload',
             offload_state_dict=True,
         )
         self.model.eval()
-
-        self.device = torch.device(device)
-        if self.accelerator is not None:
-            self.model = self.accelerator.prepare(self.model)
-            self.device = torch.device(f'{self.accelerator.device}')
-            self._rank = self.accelerator.local_process_index
-            self._world_size = self.accelerator.num_processes
-        else: 
-            # skip `.to()` for 8-bit quantized models (already placed on devices)
-            if not getattr(self.model, "is_loaded_in_8bit", False):
-                self.model = self.model.to(device)
+        
+        # Move model to correct device if not using 8-bit quantization
+        if not getattr(self.model, "is_loaded_in_8bit", False):
+            self.model.to(self.device)
 
         self.mask_id = mask_id
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, torch_dtype="auto", low_cpu_mem_usage=True)
