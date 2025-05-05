@@ -5,7 +5,7 @@
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
 #SBATCH --gres=gpu:a6000:1
-#SBATCH --array=0-4%5
+#SBATCH --array=0-7%8
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
@@ -19,7 +19,7 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-SLOTS=5
+SLOTS=8
 
 export HF_ALLOW_CODE_EVAL="1"
 
