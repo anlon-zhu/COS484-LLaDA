@@ -19,6 +19,7 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
+export PYTHONUNBUFFERED=1
 export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch \
