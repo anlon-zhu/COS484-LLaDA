@@ -4,7 +4,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
-#SBATCH --gres=gpu:rtx_2080:1
+#SBATCH --gres=gpu:a6000:1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
@@ -22,7 +22,7 @@ export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch eval_llada.py \
   --tasks humaneval \
-  --num_fewshot 5 \
+  --num_fewshot 3 \
   --model llada_dist \
   --batch_size 1 \
   --model_args model_path='GSAI-ML/LLaDA-8B-Instruct',cfg=0.0,is_check_greedy=False,mc_num=128 \
