@@ -26,4 +26,5 @@ accelerate launch eval_llada.py \
   --model llada_dist \
   --batch_size 1 \
   --model_args model_path='GSAI-ML/LLaDA-8B-Instruct',cfg=0.0,is_check_greedy=False,mc_num=128 \
-  --confirm_run_unsafe_code
+  --confirm_run_unsafe_code \
+  --output_path ../results/humaneval_instruct_zero_shot.json
