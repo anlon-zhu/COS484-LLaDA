@@ -268,9 +268,7 @@ class LLaDAEvalHarness(LM):
         ds = ds.with_format("torch")
 
         out = []
-        # Use position to show multiple progress bars
-        position = self._rank
-        for elem in tqdm(ds, desc=f"[rank {self._rank}] Generating...", position=position):
+        for elem in tqdm(ds, desc="Running generate_until requests", disable=(self._rank != 0)):
             prompt = elem["question"].unsqueeze(0).to(self.device)
             stop_tokens = elem["until"]
  
@@ -279,15 +277,14 @@ class LLaDAEvalHarness(LM):
             
             generated_answer = self.tokenizer.decode(generated_answer[0][prompt.shape[1]:], skip_special_tokens=False)
             for stop_seq in stop_tokens:
-                    if stop_seq in generated_answer:
-                        generated_answer = generated_answer.split(stop_seq)[0]
+                if stop_seq in generated_answer:
+                    generated_answer = generated_answer.split(stop_seq)[0]
 
             # remove special tokens
             generated_answer_ids = self.tokenizer(generated_answer)["input_ids"]
             generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
             out.append(generated_answer)
             self.accelerator.wait_for_everyone()
-
         return out
 
 if __name__ == "__main__":
