@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-cd "$(dirname \"$0\")"
+
+cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 
 sbatch eval_mbpp.sbatch
 sbatch eval_mbpp_3shot.sbatch
