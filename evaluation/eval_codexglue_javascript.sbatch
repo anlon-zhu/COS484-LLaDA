@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=eval_codexglue_javascript
 #SBATCH --output=logs/eval_codexglue_javascript_%j.out
-#SBATCH --time=24:00:00
+#SBATCH --time=70:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
 #SBATCH --gres=gpu:a6000:1
