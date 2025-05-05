@@ -273,7 +273,7 @@ class LLaDAEvalHarness(LM):
         pbar = tqdm(
             total=len(ds),
             disable=(self._rank != 0),
-            desc=f"[Rank {self._rank}] Generating",
+            desc=f"Running generate_until requests",
             file=sys.stdout,
             ncols=80
         )
