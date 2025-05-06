@@ -4,9 +4,9 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=pvl
 #SBATCH --account=pvl
-#SBATCH --gres=gpu:a6000:8
+#SBATCH --gres=gpu:a6000:2
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=8
+#SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --mail-user=az4244@princeton.edu
@@ -19,12 +19,11 @@ conda activate llada
 cd /n/fs/vl/anlon/COS484-LLaDA/evaluation
 source ../scripts/cache_setup.sh
 
-export PYTHONUNBUFFERED=1
 export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch \
   --multi_gpu \
-  --num_processes 8 \
+  --num_processes 2 \
   eval_llada.py \
   --tasks code2text_java \
   --num_fewshot 0 \

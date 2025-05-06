@@ -271,25 +271,26 @@ class LLaDAEvalHarness(LM):
         total = len(ds)
         
         if self._rank == 0:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            progress_file = f"logs/progress_{timestamp}.txt"
-            os.makedirs(os.path.dirname(progress_file), exist_ok=True)
-            with open(progress_file, 'w') as f:
-                f.write(f"[{datetime.now()}] Starting generation for {total} examples\n")
-            print(f"Progress file: {progress_file}", flush=True)
+            print(f"\n[Rank {self._rank}] Starting generation with {total} examples", flush=True)
+            sys.stdout.flush()
         
+        # Process all examples
         for idx, elem in enumerate(ds):
-            if self._rank == 0 and idx % max(1, total // 20) == 0:  # Update progress ~20 times
-                with open(progress_file, 'a') as f:
-                    f.write(f"[{datetime.now()}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)\n")
-
+            # Progress tracking (rank 0 only)
+            if self._rank == 0 and idx % max(1, total // 20) == 0:
+                print(f"[Rank {self._rank}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)", flush=True)
+                sys.stdout.flush()
+            
             
             prompt = elem["question"].unsqueeze(0).to(self.device)
             stop_tokens = elem["until"]
- 
-            generated_answer = generate(self.model, prompt, steps=self.steps, gen_length=self.gen_length, block_length=self.block_length, 
-                                        temperature=0, cfg_scale=self.cfg, remasking=self.remasking, mask_id=self.mask_id)
+            
+            # Wait for all ranks before generation
+            self.accelerator.wait_for_everyone()
+            
+            generated_answer = generate(self.model, prompt, steps=self.steps, gen_length=self.gen_length, 
+                                      block_length=self.block_length, temperature=0, cfg_scale=self.cfg, 
+                                      remasking=self.remasking, mask_id=self.mask_id)
             
             generated_answer = self.tokenizer.decode(generated_answer[0][prompt.shape[1]:], skip_special_tokens=False)
             for stop_seq in stop_tokens:
@@ -300,11 +301,13 @@ class LLaDAEvalHarness(LM):
             generated_answer_ids = self.tokenizer(generated_answer)["input_ids"]
             generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
             out.append(generated_answer)
-            # self.accelerator.wait_for_everyone()
+            
+            # Wait for all ranks after processing
+            self.accelerator.wait_for_everyone()
 
         if self._rank == 0:
-            with open(progress_file, 'a') as f:
-                f.write(f"[{datetime.now()}] Completed all {total} examples\n")
+            print(f"[Rank {self._rank}] Completed all {total} examples", flush=True)
+            sys.stdout.flush()
         return out
 
 if __name__ == "__main__":
