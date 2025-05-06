@@ -29,7 +29,7 @@ accelerate launch \
   --tasks code2text_java \
   --num_fewshot 0 \
   --model llada_dist \
-  --batch_size 4 \
+  --batch_size 8 \
   --model_args model_path='GSAI-ML/LLaDA-8B-Instruct',cfg=0.0,is_check_greedy=True,mc_num=16 \
   --confirm_run_unsafe_code \
   --output_path ../results/codexglue_java_instruct_zero_shot.json
