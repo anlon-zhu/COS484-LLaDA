@@ -18,11 +18,16 @@ import sys
 import logging
 from accelerate import Accelerator
 
-logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - [Rank %(rank)s] %(message)s',
-    level=logging.INFO,
-    force=True
-)
+# Create a custom logger for our progress tracking
+generation_logger = logging.getLogger('generation_progress')
+generation_logger.setLevel(logging.INFO)
+
+# Create console handler with custom formatter
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - Progress - %(message)s')
+ch.setFormatter(formatter)
+generation_logger.addHandler(ch)
+
 from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 from lm_eval.api.instance import Instance
@@ -276,15 +281,14 @@ class LLaDAEvalHarness(LM):
 
         out = []
         total = len(ds)
-        logger = logging.getLogger()
-        logger = logging.LoggerAdapter(logger, {"rank": self._rank})
         
         if self._rank == 0:
-            logger.info(f"Starting generation for {total} examples")
+            generation_logger.info(f"[Rank {self._rank}] Starting generation for {total} examples")
         
         for idx, elem in enumerate(ds):
             if self._rank == 0 and idx % max(1, total // 20) == 0:  # Log progress ~20 times
-                logger.info(f"Progress: {idx}/{total} ({(idx/total)*100:.1f}%)")
+                generation_logger.info(f"[Rank {self._rank}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)")
+
             
             prompt = elem["question"].unsqueeze(0).to(self.device)
             stop_tokens = elem["until"]
@@ -304,7 +308,7 @@ class LLaDAEvalHarness(LM):
             self.accelerator.wait_for_everyone()
 
         if self._rank == 0:
-            logger.info(f"Completed all {total} examples")
+            generation_logger.info(f"[Rank {self._rank}] Completed all {total} examples")
         return out
 
 if __name__ == "__main__":
