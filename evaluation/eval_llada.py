@@ -271,14 +271,18 @@ class LLaDAEvalHarness(LM):
         total = len(ds)
         
         if self._rank == 0:
-            progress_file = "progress.txt"
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            progress_file = f"logs/progress_{timestamp}.txt"
+            os.makedirs(os.path.dirname(progress_file), exist_ok=True)
             with open(progress_file, 'w') as f:
-                f.write(f"Starting generation for {total} examples\n")
+                f.write(f"[{datetime.now()}] Starting generation for {total} examples\n")
+            print(f"Progress file: {progress_file}", flush=True)
         
         for idx, elem in enumerate(ds):
             if self._rank == 0 and idx % max(1, total // 20) == 0:  # Update progress ~20 times
                 with open(progress_file, 'a') as f:
-                    f.write(f"Progress: {idx}/{total} ({(idx/total)*100:.1f}%)\n")
+                    f.write(f"[{datetime.now()}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)\n")
 
             
             prompt = elem["question"].unsqueeze(0).to(self.device)
@@ -296,11 +300,11 @@ class LLaDAEvalHarness(LM):
             generated_answer_ids = self.tokenizer(generated_answer)["input_ids"]
             generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
             out.append(generated_answer)
-            self.accelerator.wait_for_everyone()
+            # self.accelerator.wait_for_everyone()
 
         if self._rank == 0:
             with open(progress_file, 'a') as f:
-                f.write(f"Completed all {total} examples\n")
+                f.write(f"[{datetime.now()}] Completed all {total} examples\n")
         return out
 
 if __name__ == "__main__":
