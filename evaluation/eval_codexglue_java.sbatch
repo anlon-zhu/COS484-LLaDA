@@ -23,6 +23,7 @@ export HF_ALLOW_CODE_EVAL="1"
 
 accelerate launch \
   --multi_gpu \
+  --main_process_port 0 \
   --num_processes 2 \
   eval_llada.py \
   --tasks code2text_java \
