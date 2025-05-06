@@ -15,8 +15,14 @@ import torch
 import torch.nn.functional as F
 from datasets import Dataset
 import sys
-from tqdm import tqdm
+import logging
 from accelerate import Accelerator
+
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - [Rank %(rank)s] %(message)s',
+    level=logging.INFO,
+    force=True
+)
 from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 from lm_eval.api.instance import Instance
@@ -269,16 +275,17 @@ class LLaDAEvalHarness(LM):
         ds = ds.with_format("torch")
 
         out = []
-        # Create progress bar first
-        pbar = tqdm(
-            total=len(ds),
-            disable=(self._rank != 0),
-            desc=f"Running generate_until requests",
-            file=sys.stdout,
-            ncols=80
-        )
-
-        for elem in ds:
+        total = len(ds)
+        logger = logging.getLogger()
+        logger = logging.LoggerAdapter(logger, {"rank": self._rank})
+        
+        if self._rank == 0:
+            logger.info(f"Starting generation for {total} examples")
+        
+        for idx, elem in enumerate(ds):
+            if self._rank == 0 and idx % max(1, total // 20) == 0:  # Log progress ~20 times
+                logger.info(f"Progress: {idx}/{total} ({(idx/total)*100:.1f}%)")
+            
             prompt = elem["question"].unsqueeze(0).to(self.device)
             stop_tokens = elem["until"]
  
@@ -295,9 +302,9 @@ class LLaDAEvalHarness(LM):
             generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
             out.append(generated_answer)
             self.accelerator.wait_for_everyone()
-            pbar.update(1)
 
-        pbar.close()
+        if self._rank == 0:
+            logger.info(f"Completed all {total} examples")
         return out
 
 if __name__ == "__main__":
