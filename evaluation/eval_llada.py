@@ -15,19 +15,7 @@ import torch
 import torch.nn.functional as F
 from datasets import Dataset
 import sys
-import logging
 from accelerate import Accelerator
-
-# Create a custom logger for our progress tracking
-generation_logger = logging.getLogger('generation_progress')
-generation_logger.setLevel(logging.INFO)
-
-# Create console handler with custom formatter
-ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - Progress - %(message)s')
-ch.setFormatter(formatter)
-generation_logger.addHandler(ch)
-
 from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 from lm_eval.api.instance import Instance
@@ -283,11 +271,11 @@ class LLaDAEvalHarness(LM):
         total = len(ds)
         
         if self._rank == 0:
-            generation_logger.info(f"[Rank {self._rank}] Starting generation for {total} examples")
+            print(f"\n[Rank {self._rank}] Starting generation for {total} examples", flush=True)
         
         for idx, elem in enumerate(ds):
-            if self._rank == 0 and idx % max(1, total // 20) == 0:  # Log progress ~20 times
-                generation_logger.info(f"[Rank {self._rank}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)")
+            if self._rank == 0 and idx % max(1, total // 20) == 0:  # Print progress ~20 times
+                print(f"[Rank {self._rank}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)", flush=True)
 
             
             prompt = elem["question"].unsqueeze(0).to(self.device)
@@ -308,7 +296,7 @@ class LLaDAEvalHarness(LM):
             self.accelerator.wait_for_everyone()
 
         if self._rank == 0:
-            generation_logger.info(f"[Rank {self._rank}] Completed all {total} examples")
+            print(f"[Rank {self._rank}] Completed all {total} examples", flush=True)
         return out
 
 if __name__ == "__main__":
