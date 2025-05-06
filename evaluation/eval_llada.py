@@ -270,40 +270,59 @@ class LLaDAEvalHarness(LM):
         out = []
         total = len(ds)
         
-        if self._rank == 0:
-            print(f"\n[Rank {self._rank}] Starting generation with {total} examples", flush=True)
-            sys.stdout.flush()
+        # Create progress bar
+        pbar = tqdm(
+            total=total,
+            disable=(self.rank != 0),
+            desc=f"[Rank {self.rank}] Generating"
+        )
         
-        # Process all examples
-        for idx, elem in enumerate(ds):
-            # Progress tracking (rank 0 only)
-            if self._rank == 0 and idx % max(1, total // 20) == 0:
-                print(f"[Rank {self._rank}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)", flush=True)
-                sys.stdout.flush()
-            
-            
-            prompt = elem["question"].unsqueeze(0).to(self.device)
-            stop_tokens = elem["until"]
+        # Process in batches
+        for batch_idx in range(0, total, self.batch_size):
+            # Get batch
+            batch = ds[batch_idx:batch_idx + self.batch_size]
+            prompts = batch["question"].to(self.device)
+            stop_tokens = batch["until"]
             
             # Wait for all ranks before generation
             self.accelerator.wait_for_everyone()
             
-            generated_answer = generate(self.model, prompt, steps=self.steps, gen_length=self.gen_length, 
-                                      block_length=self.block_length, temperature=0, cfg_scale=self.cfg, 
-                                      remasking=self.remasking, mask_id=self.mask_id)
+            # Generate answers for batch
+            generated_answers = generate(
+                self.model, prompts, 
+                steps=self.steps, 
+                gen_length=self.gen_length,
+                block_length=self.block_length, 
+                temperature=0, 
+                cfg_scale=self.cfg,
+                remasking=self.remasking, 
+                mask_id=self.mask_id
+            )
             
-            generated_answer = self.tokenizer.decode(generated_answer[0][prompt.shape[1]:], skip_special_tokens=False)
-            for stop_seq in stop_tokens:
-                if stop_seq in generated_answer:
-                    generated_answer = generated_answer.split(stop_seq)[0]
-
-            # remove special tokens
-            generated_answer_ids = self.tokenizer(generated_answer)["input_ids"]
-            generated_answer = self.tokenizer.decode(generated_answer_ids, skip_special_tokens=True)
-            out.append(generated_answer)
+            # Process each answer in batch
+            for prompt, answer, stops in zip(prompts, generated_answers, stop_tokens):
+                # Extract generated text after prompt
+                answer_text = self.tokenizer.decode(answer[prompt.shape[0]:], skip_special_tokens=False)
+                
+                # Apply stop tokens
+                for stop_seq in stops:
+                    if stop_seq in answer_text:
+                        answer_text = answer_text.split(stop_seq)[0]
+                
+                # Clean up special tokens
+                answer_ids = self.tokenizer(answer_text)["input_ids"]
+                answer_text = self.tokenizer.decode(answer_ids, skip_special_tokens=True)
+                out.append(answer_text)
             
-            # Wait for all ranks after processing
+            # Wait for all ranks after batch
             self.accelerator.wait_for_everyone()
+            
+            # Update progress
+            if self.rank == 0:
+                pbar.update(len(batch))
+        
+        # Close progress bar
+        pbar.close()
 
         if self._rank == 0:
             print(f"[Rank {self._rank}] Completed all {total} examples", flush=True)
