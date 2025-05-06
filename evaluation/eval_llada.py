@@ -271,11 +271,14 @@ class LLaDAEvalHarness(LM):
         total = len(ds)
         
         if self._rank == 0:
-            print(f"\n[Rank {self._rank}] Starting generation for {total} examples", flush=True)
+            progress_file = "progress.txt"
+            with open(progress_file, 'w') as f:
+                f.write(f"Starting generation for {total} examples\n")
         
         for idx, elem in enumerate(ds):
-            if self._rank == 0 and idx % max(1, total // 20) == 0:  # Print progress ~20 times
-                print(f"[Rank {self._rank}] Progress: {idx}/{total} ({(idx/total)*100:.1f}%)", flush=True)
+            if self._rank == 0 and idx % max(1, total // 20) == 0:  # Update progress ~20 times
+                with open(progress_file, 'a') as f:
+                    f.write(f"Progress: {idx}/{total} ({(idx/total)*100:.1f}%)\n")
 
             
             prompt = elem["question"].unsqueeze(0).to(self.device)
@@ -296,7 +299,8 @@ class LLaDAEvalHarness(LM):
             self.accelerator.wait_for_everyone()
 
         if self._rank == 0:
-            print(f"[Rank {self._rank}] Completed all {total} examples", flush=True)
+            with open(progress_file, 'a') as f:
+                f.write(f"Completed all {total} examples\n")
         return out
 
 if __name__ == "__main__":
